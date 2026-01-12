@@ -1,8 +1,10 @@
 # Video Encoder Pipeline
 
-[![CI](https://github.com/kazuhirokondo/video-encoder-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/kazuhirokondo/video-encoder-pipeline/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/rust-1.92%2B-blue.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org/)
+[![Tests](https://img.shields.io/badge/tests-73%20passing-brightgreen.svg)](./encoder/src/)
+[![Clippy](https://img.shields.io/badge/clippy-pedantic-green.svg)](./encoder/src/lib.rs)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](./CHANGELOG.md)
 
 AWS Batch対応のマルチコーデック動画エンコーディングパイプライン。HLS/DASH配信に対応した4層コーデック戦略で、あらゆるデバイスへの動画配信を実現します。
 
