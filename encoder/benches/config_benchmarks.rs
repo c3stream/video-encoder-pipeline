@@ -51,7 +51,7 @@ fn bench_tier_operations(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark VideoCodec operations
+/// Benchmark `VideoCodec` operations
 fn bench_video_codec_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("VideoCodec");
 
@@ -123,7 +123,7 @@ fn bench_abr_ladder_operations(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark PreprocessConfig operations
+/// Benchmark `PreprocessConfig` operations
 fn bench_preprocess_config_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("PreprocessConfig");
 
@@ -147,7 +147,7 @@ fn bench_preprocess_config_operations(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark EncryptionConfig operations
+/// Benchmark `EncryptionConfig` operations
 fn bench_encryption_config_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("EncryptionConfig");
 

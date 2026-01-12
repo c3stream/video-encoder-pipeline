@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_detect_raw_codec() {
-        let status = detect_processing_status("prores", Some(100000), None, None, Path::new("test.mov"));
+        let status = detect_processing_status("prores", Some(100_000), None, None, Path::new("test.mov"));
         assert_eq!(status, ProcessingStatus::Raw);
     }
 

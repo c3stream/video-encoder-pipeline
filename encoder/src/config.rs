@@ -1228,6 +1228,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn encryption_config_is_enabled() {
         let mut config = EncryptionConfig::default();
 

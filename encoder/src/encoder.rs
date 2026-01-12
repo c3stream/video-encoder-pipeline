@@ -1493,6 +1493,7 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     #[test]
     fn format_iso_duration_seconds_only() {
@@ -1579,7 +1580,6 @@ mod tests {
         let pssh = generate_clearkey_pssh(key_id);
 
         // Should be valid base64
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
         assert!(STANDARD.decode(&pssh).is_ok());
 
         // Decoded should start with size bytes and 'pssh'
