@@ -11,8 +11,8 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use video_encoder::config::{Tier, VideoCodec, Rendition};
+//! ```
+//! use video_encoder::{Tier, VideoCodec, Rendition};
 //!
 //! // Get codec for a tier
 //! let codec = Tier::Tier1.video_codec();
