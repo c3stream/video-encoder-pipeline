@@ -23,6 +23,7 @@ yarn-error.log*
 # AWS CDK
 cdk/cdk.out/
 cdk/node_modules/
+cdk/video-encoder-cdk
 *.js.map
 *.d.ts
 
@@ -44,6 +45,9 @@ cdk/node_modules/
 # Encoder test videos
 encoder/test_videos/
 
+# Encoder test outputs (contains encrypted keys!)
+encoder/test_output*/
+
 # Player generated content (encoded output)
 player/*/
 !player/index.html
@@ -51,6 +55,12 @@ player/*/
 !player/app.js
 !player/serve.sh
 !player/README.md
+
+# Player symlinks (local paths)
+player/flash_test
+player/noisy_test_2min
+player/outputs
+player/test_*
 
 # Temporary encoding files
 *.tmp

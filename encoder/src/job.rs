@@ -10,14 +10,16 @@ use tracing::info;
 /// Upscaler selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Upscaler {
-    /// FFmpeg built-in scalers (lanczos, bicubic)
+    /// `FFmpeg` built-in scalers (lanczos, bicubic)
     Ffmpeg,
     /// Real-ESRGAN AI upscaler
     RealEsrgan,
 }
 
 impl Upscaler {
-    pub fn from_str(s: &str) -> Self {
+    /// Parse upscaler type from string
+    #[must_use]
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "realesrgan" | "esrgan" | "ai" => Self::RealEsrgan,
             _ => Self::Ffmpeg,
@@ -148,7 +150,7 @@ pub struct JobConfig {
     /// Enable auto-filter adjustment based on source analysis
     pub auto_filter: bool,
 
-    /// Source analysis info (populated when auto_filter is enabled)
+    /// Source analysis info (populated when `auto_filter` is enabled)
     #[serde(skip)]
     pub source_info: Option<SourceInfo>,
 
@@ -239,7 +241,7 @@ impl JobConfig {
             output: args.output.clone(),
             preset,
             upscale: args.upscale,
-            upscaler: Upscaler::from_str(&args.upscaler),
+            upscaler: Upscaler::parse(&args.upscaler),
             resolution,
             tiers,
             generate_dash: args.dash,

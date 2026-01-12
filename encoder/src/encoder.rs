@@ -31,7 +31,7 @@ use std::time::Instant;
 use tokio::fs;
 use tracing::info;
 
-/// Probe video duration in seconds using FFprobe
+/// Probe video duration in seconds using `FFprobe`
 fn probe_duration(input: &Path) -> Result<f64> {
     let output = Command::new("ffprobe")
         .args([
@@ -41,27 +41,27 @@ fn probe_duration(input: &Path) -> Result<f64> {
             input.to_str().unwrap_or_default(),
         ])
         .output()
-        .map_err(|e| EncoderError::FfmpegError(format!("ffprobe failed: {}", e)))?;
+        .map_err(|e| EncoderError::FfmpegError(format!("ffprobe failed: {e}")))?;
 
     let duration_str = String::from_utf8_lossy(&output.stdout);
     duration_str
         .trim()
         .parse::<f64>()
-        .map_err(|e| EncoderError::FfmpegError(format!("Failed to parse duration: {}", e)))
+        .map_err(|e| EncoderError::FfmpegError(format!("Failed to parse duration: {e}")))
 }
 
 /// Probe duration from output directory
+#[allow(clippy::unnecessary_wraps)] // Result kept for error handling consistency
 fn probe_duration_from_output(output_base: &Path) -> Result<f64> {
     // Check segments/video directory for any playlist
     let video_base = output_base.join("segments").join("video");
     for codec in ["av1", "vp9", "h264"] {
         for rendition in ["1080p", "720p", "480p", "360p"] {
             let playlist = video_base.join(codec).join(rendition).join("playlist.m3u8");
-            if playlist.exists() {
-                if let Ok(duration) = parse_hls_duration(&playlist) {
+            if playlist.exists()
+                && let Ok(duration) = parse_hls_duration(&playlist) {
                     return Ok(duration);
                 }
-            }
         }
     }
 
@@ -70,11 +70,10 @@ fn probe_duration_from_output(output_base: &Path) -> Result<f64> {
         let tier_dir = output_base.join(tier_name);
         for rendition in ["1080p", "720p", "480p", "360p"] {
             let video_playlist = tier_dir.join(rendition).join("video").join("playlist.m3u8");
-            if video_playlist.exists() {
-                if let Ok(duration) = parse_hls_duration(&video_playlist) {
+            if video_playlist.exists()
+                && let Ok(duration) = parse_hls_duration(&video_playlist) {
                     return Ok(duration);
                 }
-            }
         }
     }
 
@@ -88,15 +87,12 @@ fn parse_hls_duration(playlist: &Path) -> Result<f64> {
 
     let mut total_duration = 0.0;
     for line in content.lines() {
-        if line.starts_with("#EXTINF:") {
-            if let Some(duration_str) = line.strip_prefix("#EXTINF:") {
-                if let Some(duration_part) = duration_str.split(',').next() {
-                    if let Ok(duration) = duration_part.trim().parse::<f64>() {
+        if line.starts_with("#EXTINF:")
+            && let Some(duration_str) = line.strip_prefix("#EXTINF:")
+                && let Some(duration_part) = duration_str.split(',').next()
+                    && let Ok(duration) = duration_part.trim().parse::<f64>() {
                         total_duration += duration;
                     }
-                }
-            }
-        }
     }
 
     if total_duration > 0.0 {
@@ -113,11 +109,11 @@ fn format_iso_duration(seconds: f64) -> String {
     let secs = seconds % 60.0;
 
     if hours > 0 {
-        format!("PT{}H{}M{:.3}S", hours, minutes, secs)
+        format!("PT{hours}H{minutes}M{secs:.3}S")
     } else if minutes > 0 {
-        format!("PT{}M{:.3}S", minutes, secs)
+        format!("PT{minutes}M{secs:.3}S")
     } else {
-        format!("PT{:.3}S", secs)
+        format!("PT{secs:.3}S")
     }
 }
 
@@ -345,6 +341,7 @@ async fn encode_video_single(
 }
 
 /// Encode a single video rendition with CMAF segmentation
+#[allow(clippy::unused_async)] // async kept for future parallelization
 async fn encode_video_rendition(
     input: &Path,
     output_dir: &Path,
@@ -382,7 +379,7 @@ async fn encode_video_rendition(
     let playlist = output_dir.join("playlist.m3u8");
     args.extend([
         "-force_key_frames".to_string(),
-        format!("expr:gte(t,n_forced*{})", segment_duration),
+        format!("expr:gte(t,n_forced*{segment_duration})"),
         "-f".to_string(),
         "hls".to_string(),
         "-hls_time".to_string(),
@@ -450,7 +447,7 @@ async fn encode_audio_bitrate(
     bitrate_kbps: u32,
     config: &JobConfig,
 ) -> Result<()> {
-    let bitrate_dir = codec_dir.join(format!("{}k", bitrate_kbps));
+    let bitrate_dir = codec_dir.join(format!("{bitrate_kbps}k"));
     fs::create_dir_all(&bitrate_dir).await?;
 
     let segment_duration = config.segment_config.duration_secs;
@@ -506,8 +503,7 @@ async fn encode_audio_bitrate(
 
     if !status.success() {
         return Err(EncoderError::FfmpegError(format!(
-            "FFmpeg audio encoding failed for {:?} at {}kbps",
-            audio_codec, bitrate_kbps
+            "FFmpeg audio encoding failed for {audio_codec:?} at {bitrate_kbps}kbps"
         )));
     }
 
@@ -702,14 +698,14 @@ fn video_encoder_args_cbr(codec: VideoCodec, rendition: &Rendition, config: &Job
     }
 }
 
-/// Get audio encoder arguments for FFmpeg
+/// Get audio encoder arguments for `FFmpeg`
 fn audio_encoder_args(codec: AudioCodec) -> Vec<String> {
     audio_encoder_args_with_bitrate(codec, 128)
 }
 
 /// Get audio encoder arguments with specific bitrate
 fn audio_encoder_args_with_bitrate(codec: AudioCodec, bitrate_kbps: u32) -> Vec<String> {
-    let bitrate_str = format!("{}k", bitrate_kbps);
+    let bitrate_str = format!("{bitrate_kbps}k");
     match codec {
         AudioCodec::Opus => vec![
             "-c:a".to_string(),
@@ -773,10 +769,10 @@ fn generate_dash_manifest(
 
         if config.abr_enabled {
             let renditions = [
-                ("1080p", 6000000u32, 1920u32, 1080u32),
-                ("720p", 3000000, 1280, 720),
-                ("480p", 1500000, 854, 480),
-                ("360p", 800000, 640, 360),
+                ("1080p", 6_000_000_u32, 1920_u32, 1080_u32),
+                ("720p", 3_000_000, 1280, 720),
+                ("480p", 1_500_000, 854, 480),
+                ("360p", 800_000, 640, 360),
             ];
 
             for (rendition, bandwidth, width, height) in &renditions {
@@ -819,9 +815,9 @@ fn generate_dash_manifest(
 
         // Check for multiple bitrates
         let bitrates = if config.audio_abr_enabled {
-            vec![("256k", 256000), ("128k", 128000), ("64k", 64000)]
+            vec![("256k", 256_000), ("128k", 128_000), ("64k", 64_000)]
         } else {
-            vec![("128k", 128000)]
+            vec![("128k", 128_000)]
         };
 
         for (bitrate_dir, bandwidth) in &bitrates {
@@ -886,10 +882,10 @@ fn generate_hls_manifest(
 
         if config.abr_enabled {
             for (rendition, bandwidth, resolution) in [
-                ("1080p", 6000000, "1920x1080"),
-                ("720p", 3000000, "1280x720"),
-                ("480p", 1500000, "854x480"),
-                ("360p", 800000, "640x360"),
+                ("1080p", 6_000_000, "1920x1080"),
+                ("720p", 3_000_000, "1280x720"),
+                ("480p", 1_500_000, "854x480"),
+                ("360p", 800_000, "640x360"),
             ] {
                 let video_path = output_base
                     .join("segments")
@@ -958,7 +954,7 @@ fn generate_tier_hls_playlists(
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
                 let rewritten = rewrite_hls_paths(&content, &format!("../segments/video/{video_dir}/{rendition}/"));
-                let target = hls_dir.join(format!("{}_{}.m3u8", dir_name, rendition));
+                let target = hls_dir.join(format!("{dir_name}_{rendition}.m3u8"));
                 std::fs::write(&target, rewritten)
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
             }
@@ -985,9 +981,9 @@ fn generate_tier_hls_playlists(
 
                 let rewritten = rewrite_hls_paths(&content, &format!("../segments/audio/{audio_dir}/{bitrate}/"));
                 let target = if config.audio_abr_enabled {
-                    hls_dir.join(format!("{}_audio_{}.m3u8", dir_name, bitrate))
+                    hls_dir.join(format!("{dir_name}_audio_{bitrate}.m3u8"))
                 } else {
-                    hls_dir.join(format!("{}_audio.m3u8", dir_name))
+                    hls_dir.join(format!("{dir_name}_audio.m3u8"))
                 };
                 std::fs::write(&target, rewritten)
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
@@ -1008,21 +1004,19 @@ fn generate_tier_hls_playlists(
             // Create combined playlist
             let mut combined = String::from("#EXTM3U\n#EXT-X-VERSION:7\n\n");
             combined.push_str(&format!(
-                "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES,URI=\"{}_audio.m3u8\"\n\n",
-                dir_name
+                "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES,URI=\"{dir_name}_audio.m3u8\"\n\n"
             ));
             combined.push_str(&format!(
-                "#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080,AUDIO=\"audio\"\n{}_video.m3u8\n",
-                dir_name
+                "#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080,AUDIO=\"audio\"\n{dir_name}_video.m3u8\n"
             ));
 
-            let target = hls_dir.join(format!("{}.m3u8", dir_name));
+            let target = hls_dir.join(format!("{dir_name}.m3u8"));
             std::fs::write(&target, combined)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
             // Write video playlist
             let rewritten = rewrite_hls_paths(&content, &format!("../segments/video/{video_dir}/"));
-            let video_target = hls_dir.join(format!("{}_video.m3u8", dir_name));
+            let video_target = hls_dir.join(format!("{dir_name}_video.m3u8"));
             std::fs::write(&video_target, rewritten)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
         }
@@ -1040,7 +1034,7 @@ fn generate_tier_hls_playlists(
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
             let rewritten = rewrite_hls_paths(&content, &format!("../segments/audio/{audio_dir}/128k/"));
-            let target = hls_dir.join(format!("{}_audio.m3u8", dir_name));
+            let target = hls_dir.join(format!("{dir_name}_audio.m3u8"));
             std::fs::write(&target, rewritten)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
         }
@@ -1057,7 +1051,7 @@ fn rewrite_hls_paths(content: &str, base_path: &str) -> String {
         if line.starts_with('#') {
             // Handle EXT-X-MAP for init segment
             if line.starts_with("#EXT-X-MAP:URI=") {
-                let new_line = line.replace("URI=\"", &format!("URI=\"{}", base_path));
+                let new_line = line.replace("URI=\"", &format!("URI=\"{base_path}"));
                 result.push_str(&new_line);
             } else {
                 result.push_str(line);
@@ -1251,7 +1245,7 @@ fn generate_hls_manifest_aes128(
         let entry = entry.map_err(|e| EncoderError::ManifestError(e.to_string()))?;
         let path = entry.path();
 
-        if path.extension().map_or(false, |e| e == "m3u8") && path != *output_path {
+        if path.extension().is_some_and(|e| e == "m3u8") && path != *output_path {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
@@ -1274,7 +1268,7 @@ fn generate_hls_manifest_aes128(
 // DASH ClearKey Encryption Functions
 // ============================================================================
 
-/// Generate DASH manifest with ClearKey encryption
+/// Generate DASH manifest with `ClearKey` encryption
 fn generate_dash_manifest_clearkey(
     output_base: &Path,
     tiers: &[Tier],
@@ -1331,10 +1325,10 @@ fn generate_dash_manifest_clearkey(
 
         if config.abr_enabled {
             let renditions = [
-                ("1080p", 6000000u32, 1920u32, 1080u32),
-                ("720p", 3000000, 1280, 720),
-                ("480p", 1500000, 854, 480),
-                ("360p", 800000, 640, 360),
+                ("1080p", 6_000_000_u32, 1920_u32, 1080_u32),
+                ("720p", 3_000_000, 1280, 720),
+                ("480p", 1_500_000, 854, 480),
+                ("360p", 800_000, 640, 360),
             ];
 
             for (rendition, bandwidth, width, height) in &renditions {
@@ -1381,9 +1375,9 @@ fn generate_dash_manifest_clearkey(
 
         // Check for multiple bitrates
         let bitrates = if config.audio_abr_enabled {
-            vec![("256k", 256000), ("128k", 128000), ("64k", 64000)]
+            vec![("256k", 256_000), ("128k", 128_000), ("64k", 64_000)]
         } else {
-            vec![("128k", 128000)]
+            vec![("128k", 128_000)]
         };
 
         for (bitrate_dir, bandwidth) in &bitrates {
@@ -1416,7 +1410,7 @@ fn generate_dash_manifest_clearkey(
     Ok(())
 }
 
-/// Generate ClearKey PSSH box (base64 encoded)
+/// Generate `ClearKey` PSSH box (base64 encoded)
 fn generate_clearkey_pssh(key_id: &str) -> String {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
 
@@ -1442,7 +1436,7 @@ fn generate_clearkey_pssh(key_id: &str) -> String {
     STANDARD.encode(&pssh)
 }
 
-/// Generate ClearKey license file for testing
+/// Generate `ClearKey` license file for testing
 fn generate_clearkey_license_file(output_base: &Path, config: &JobConfig) -> Result<()> {
     use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
@@ -1483,7 +1477,7 @@ fn generate_clearkey_license_file(output_base: &Path, config: &JobConfig) -> Res
 
 /// Convert hex string to bytes
 fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err(EncoderError::EncryptionError("Invalid hex string length".to_string()));
     }
 
@@ -1491,7 +1485,7 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
         .step_by(2)
         .map(|i| {
             u8::from_str_radix(&hex[i..i + 2], 16)
-                .map_err(|e| EncoderError::EncryptionError(format!("Invalid hex: {}", e)))
+                .map_err(|e| EncoderError::EncryptionError(format!("Invalid hex: {e}")))
         })
         .collect()
 }

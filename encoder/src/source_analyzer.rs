@@ -49,6 +49,7 @@ impl ProcessingStatus {
 
     /// Whether loudness normalization is safe
     #[must_use]
+    #[allow(clippy::unused_self)] // self reserved for future implementation
     pub fn should_normalize_audio(&self) -> bool {
         // Always safe to normalize - just ensure not double-normalized
         true
@@ -60,7 +61,7 @@ impl ProcessingStatus {
 pub struct SourceInfo {
     /// Video codec name (e.g., "h264", "hevc", "prores")
     pub video_codec: String,
-    /// Audio codec name (e.g., "aac", "pcm_s16le")
+    /// Audio codec name (e.g., "aac", "`pcm_s16le`")
     pub audio_codec: Option<String>,
     /// Video bitrate in kbps
     pub video_bitrate_kbps: Option<u32>,
@@ -111,7 +112,7 @@ impl SourceInfo {
     /// Parse ffprobe JSON output
     fn from_ffprobe_output(json: &str, path: &Path) -> Result<Self> {
         let data: serde_json::Value = serde_json::from_str(json)
-            .map_err(|e| EncoderError::FfmpegError(format!("Failed to parse ffprobe output: {}", e)))?;
+            .map_err(|e| EncoderError::FfmpegError(format!("Failed to parse ffprobe output: {e}")))?;
 
         // Extract stream information
         let streams = data["streams"].as_array()
@@ -232,7 +233,7 @@ impl SourceInfo {
             self.height,
             self.video_codec,
             self.framerate,
-            self.video_bitrate_kbps.map_or("unknown bps".to_string(), |b| format!("{}kbps", b)),
+            self.video_bitrate_kbps.map_or("unknown bps".to_string(), |b| format!("{b}kbps")),
             self.status
         )
     }
@@ -247,13 +248,13 @@ impl SourceInfo {
         println!("Duration:      {:.2} seconds", self.duration_secs);
 
         if let Some(kbps) = self.video_bitrate_kbps {
-            println!("Video Bitrate: {} kbps", kbps);
+            println!("Video Bitrate: {kbps} kbps");
         }
         if let Some(kbps) = self.audio_bitrate_kbps {
-            println!("Audio Bitrate: {} kbps", kbps);
+            println!("Audio Bitrate: {kbps} kbps");
         }
         if let Some(ref enc) = self.encoder {
-            println!("Encoder:       {}", enc);
+            println!("Encoder:       {enc}");
         }
 
         println!("\nProcessing Status: {}", self.status.description());
@@ -261,7 +262,7 @@ impl SourceInfo {
         if !self.filter_recommendations.reasons.is_empty() {
             println!("\nFilter Recommendations:");
             for reason in &self.filter_recommendations.reasons {
-                println!("  - {}", reason);
+                println!("  - {reason}");
             }
         }
         println!("=============================================");
@@ -279,7 +280,7 @@ fn run_ffprobe(path: &Path) -> Result<String> {
             path.to_str().unwrap_or_default(),
         ])
         .output()
-        .map_err(|e| EncoderError::FfmpegError(format!("ffprobe failed: {}", e)))?;
+        .map_err(|e| EncoderError::FfmpegError(format!("ffprobe failed: {e}")))?;
 
     if !output.status.success() {
         return Err(EncoderError::FfmpegError(
@@ -326,11 +327,10 @@ fn detect_processing_status(
         // FFmpeg/Lavf indicates processing
         if enc_lower.contains("lavf") || enc_lower.contains("ffmpeg") {
             // High bitrate FFmpeg output might be intermediate
-            if let Some(kbps) = video_bitrate_kbps {
-                if kbps > 20000 {
+            if let Some(kbps) = video_bitrate_kbps
+                && kbps > 20000 {
                     return ProcessingStatus::Filtered;
                 }
-            }
             return ProcessingStatus::Encoded;
         }
 
@@ -400,14 +400,13 @@ fn generate_recommendations(
             rec.reasons.push("Already encoded: skipping deblock (may already be applied)".to_string());
 
             // Check for low bitrate (likely heavily compressed)
-            if let Some(kbps) = video_bitrate_kbps {
-                if kbps < 3000 {
+            if let Some(kbps) = video_bitrate_kbps
+                && kbps < 3000 {
                     rec.skip_deflicker = true;
                     rec.reasons.push(format!(
-                        "Low bitrate ({}kbps): deflicker may introduce artifacts", kbps
+                        "Low bitrate ({kbps}kbps): deflicker may introduce artifacts"
                     ));
                 }
-            }
         }
         ProcessingStatus::Filtered => {
             // Already filtered - skip duplicate processing
@@ -422,34 +421,30 @@ fn generate_recommendations(
         }
         ProcessingStatus::Unknown => {
             // Unknown - use conservative defaults based on codec
-            if video_codec.to_lowercase().contains("h264") || video_codec.to_lowercase().contains("hevc") {
-                if let Some(kbps) = video_bitrate_kbps {
-                    if kbps < 5000 {
+            if (video_codec.to_lowercase().contains("h264") || video_codec.to_lowercase().contains("hevc"))
+                && let Some(kbps) = video_bitrate_kbps
+                    && kbps < 5000 {
                         rec.skip_video_denoise = true;
                         rec.reasons.push("Compressed source: denoise may degrade quality".to_string());
                     }
-                }
-            }
         }
     }
 
     // Check encoder for normalization status
-    if let Some(enc) = encoder {
-        if enc.to_lowercase().contains("loudnorm") {
+    if let Some(enc) = encoder
+        && enc.to_lowercase().contains("loudnorm") {
             rec.skip_audio_normalize = true;
             rec.reasons.push("Audio already normalized (loudnorm detected)".to_string());
         }
-    }
 
     // Check for low audio bitrate
-    if let Some(kbps) = audio_bitrate_kbps {
-        if kbps < 64 {
+    if let Some(kbps) = audio_bitrate_kbps
+        && kbps < 64 {
             rec.skip_audio_denoise = true;
             rec.reasons.push(format!(
-                "Low audio bitrate ({}kbps): skipping denoise to preserve quality", kbps
+                "Low audio bitrate ({kbps}kbps): skipping denoise to preserve quality"
             ));
         }
-    }
 
     rec
 }
@@ -469,7 +464,8 @@ pub fn generate_processing_metadata(filters_applied: &[&str]) -> String {
     )
 }
 
-/// FFmpeg metadata args for embedding processing info
+/// `FFmpeg` metadata args for embedding processing info
+#[must_use] 
 pub fn metadata_args(comment: &str) -> Vec<String> {
     vec![
         "-metadata".to_string(),

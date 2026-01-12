@@ -21,6 +21,7 @@ pub async fn upscale_video(
 }
 
 /// FFmpeg-based upscaling using lanczos
+#[allow(clippy::unused_async)] // async kept for future parallelization
 async fn upscale_ffmpeg(input: &Path, output: &Path, target: Resolution) -> Result<()> {
     info!(
         input = %input.display(),
@@ -197,6 +198,7 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
 }
 
 /// Check if upscaling is needed based on input resolution
+#[must_use] 
 pub fn needs_upscale(input_width: u32, input_height: u32, target: Resolution) -> bool {
     input_width < target.width || input_height < target.height
 }

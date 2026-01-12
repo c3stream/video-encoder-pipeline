@@ -6,6 +6,17 @@
 //! - Tier 3: VP9 + AAC (video royalty-free, iOS 14+)
 //! - Tier 4: H.264 + AAC (fallback, universal)
 
+// Binary-level lint configuration (same as lib.rs)
+#![allow(clippy::format_push_string)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(dead_code)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::missing_errors_doc)]
+
 mod config;
 mod encoder;
 mod error;
@@ -66,7 +77,7 @@ struct Args {
     #[arg(long, default_value = "false")]
     qvbr: bool,
 
-    /// Enable encryption (HLS AES-128 + DASH ClearKey)
+    /// Enable encryption (HLS `AES-128` + DASH `ClearKey`)
     #[arg(long, default_value = "false")]
     encrypt: bool,
 
@@ -120,7 +131,8 @@ impl From<&Args> for job::JobArgs {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
+    // Initialize logging (RAII pattern - must stay in scope)
+    #[allow(clippy::let_unit_value)]
     let _subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .json()
@@ -158,14 +170,15 @@ async fn main() -> Result<()> {
 }
 
 /// Run source analysis only (no encoding)
+#[allow(clippy::unused_async)] // async kept for API consistency
 async fn run_analyze_mode(input: &str) -> Result<()> {
     use std::path::Path;
 
-    println!("Analyzing source file: {}", input);
+    println!("Analyzing source file: {input}");
 
     let path = Path::new(input);
     if !path.exists() {
-        anyhow::bail!("Input file not found: {}", input);
+        anyhow::bail!("Input file not found: {input}");
     }
 
     let source_info = source_analyzer::SourceInfo::analyze(path)?;

@@ -84,6 +84,7 @@ impl VideoCodec {
 
 /// Audio codec options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum AudioCodec {
     Opus,
     AAC,
@@ -109,8 +110,7 @@ impl AudioCodec {
     #[must_use]
     pub fn bitrate(&self) -> &'static str {
         match self {
-            Self::Opus => "128k",
-            Self::AAC => "128k",
+            Self::Opus | Self::AAC => "128k",
         }
     }
 }
@@ -163,7 +163,7 @@ pub struct PreprocessConfig {
     pub audio_normalize: bool,
     /// Target loudness in LUFS (default: -14 for streaming)
     pub target_lufs: f32,
-    /// Enable video deflicker filter (legacy, consider using fluorescent_deflicker)
+    /// Enable video deflicker filter (legacy, consider using `fluorescent_deflicker`)
     pub video_deflicker: bool,
     /// Deflicker mode: 0=none, 1=slight, 2=medium, 3=strong, 4=extreme (legacy)
     pub deflicker_mode: u8,
@@ -380,7 +380,7 @@ impl PreprocessConfig {
         Self::fluorescent_light(PowerFrequency::Hz60)
     }
 
-    /// Build FFmpeg video filter chain
+    /// Build `FFmpeg` video filter chain
     ///
     /// # Arguments
     /// * `scale` - Optional target resolution (width, height)
@@ -400,7 +400,7 @@ impl PreprocessConfig {
                 DenoiseStrength::Medium => "3:3:4:4",
                 DenoiseStrength::Strong => "6:6:6:6",
             };
-            filters.push(format!("hqdn3d={}", params));
+            filters.push(format!("hqdn3d={params}"));
         }
 
         // Fluorescent light deflicker (new, power-frequency aware)
@@ -417,14 +417,14 @@ impl PreprocessConfig {
                 3 => 7,
                 _ => 9,
             };
-            filters.push(format!("deflicker=size={}:mode=am", size));
+            filters.push(format!("deflicker=size={size}:mode=am"));
         }
 
         self.build_remaining_video_filters(&mut filters, scale);
         filters.join(",")
     }
 
-    /// Build FFmpeg video filter chain (legacy, assumes 30fps for fluorescent deflicker)
+    /// Build `FFmpeg` video filter chain (legacy, assumes 30fps for fluorescent deflicker)
     #[must_use]
     pub fn video_filter_chain(&self, scale: Option<(u32, u32)>) -> String {
         // Default to 30fps for backward compatibility
@@ -454,7 +454,7 @@ impl PreprocessConfig {
 
             // FFmpeg photosensitivity filter - only applies correction when extreme flash detected
             // High threshold ensures normal scene changes are NOT affected
-            filters.push(format!("photosensitivity=frames={}:threshold={:.1}", frames, threshold));
+            filters.push(format!("photosensitivity=frames={frames}:threshold={threshold:.1}"));
 
             // Note: Removed limiter as it can affect scene brightness transitions
         }
@@ -462,8 +462,8 @@ impl PreprocessConfig {
         // Deblock - reduce blocking artifacts
         if self.video_deblock {
             let strength = self.deblock_strength.min(100);
-            let filter_str = strength as f32 / 100.0;
-            filters.push(format!("deblock=filter={:.2}:block=8", filter_str));
+            let filter_str = f32::from(strength) / 100.0;
+            filters.push(format!("deblock=filter={filter_str:.2}:block=8"));
         }
 
         // === Ofcom/ITU Broadcast Compliance Video Filters ===
@@ -485,8 +485,7 @@ impl PreprocessConfig {
             };
             // selectivecolor: only affects pixels in the pure red hue range
             filters.push(format!(
-                "selectivecolor=reds='cyan=0 magenta=0 yellow=0 black=-{}'",
-                red_reduction
+                "selectivecolor=reds='cyan=0 magenta=0 yellow=0 black=-{red_reduction}'"
             ));
         }
 
@@ -499,7 +498,7 @@ impl PreprocessConfig {
             // Default 0.98 is essentially invisible
             let max_sat = self.max_saturation.clamp(0.9, 1.0);
             if max_sat < 1.0 {
-                filters.push(format!("eq=saturation={:.2}", max_sat));
+                filters.push(format!("eq=saturation={max_sat:.2}"));
             }
             // If max_sat >= 1.0, skip the filter entirely
         }
@@ -515,17 +514,17 @@ impl PreprocessConfig {
             };
             // Apply slight gaussian blur to break up regular patterns
             // Then apply mild unsharp to restore some detail
-            filters.push(format!("gblur=sigma={:.1}", blur_strength));
-            filters.push(format!("unsharp=5:5:{:.1}:5:5:0", unsharp_strength));
+            filters.push(format!("gblur=sigma={blur_strength:.1}"));
+            filters.push(format!("unsharp=5:5:{unsharp_strength:.1}:5:5:0"));
         }
 
         // Scale filter - add at the end
         if let Some((width, height)) = scale {
-            filters.push(format!("scale={}:{}", width, height));
+            filters.push(format!("scale={width}:{height}"));
         }
     }
 
-    /// Build FFmpeg audio filter chain
+    /// Build `FFmpeg` audio filter chain
     #[must_use]
     pub fn audio_filter_chain(&self) -> String {
         let mut filters = Vec::new();
@@ -564,8 +563,7 @@ impl PreprocessConfig {
             // Use print_format=summary for single-pass mode without pre-measured values
             // This automatically analyzes input and normalizes to target
             filters.push(format!(
-                "loudnorm=I={}:LRA={}:TP=-1.0:print_format=summary",
-                target_i, target_lra
+                "loudnorm=I={target_i}:LRA={target_lra}:TP=-1.0:print_format=summary"
             ));
         }
 
@@ -598,6 +596,7 @@ pub enum DenoiseStrength {
 /// - 50Hz regions (Eastern Japan, Europe, etc.): 100Hz flicker
 /// - 60Hz regions (Western Japan, Americas, etc.): 120Hz flicker
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum PowerFrequency {
     /// 50Hz power line (Eastern Japan, Europe, Australia, most of Asia/Africa)
     /// Results in 100Hz light flicker
@@ -606,21 +605,17 @@ pub enum PowerFrequency {
     /// Results in 120Hz light flicker
     Hz60,
     /// Auto-detect based on content analysis (uses deflicker's built-in detection)
+    #[default]
     Auto,
 }
 
-impl Default for PowerFrequency {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
 
 impl PowerFrequency {
     /// Calculate optimal deflicker frame window size based on framerate
     ///
     /// The goal is to average over at least one complete flicker cycle.
     /// Flicker frequency = 2 × power frequency (100Hz or 120Hz)
-    /// Frames per cycle = framerate / flicker_frequency
+    /// Frames per cycle = framerate / `flicker_frequency`
     /// Window size should cover 1-2 complete cycles for smooth results
     #[must_use]
     pub fn optimal_window_size(&self, framerate: f64) -> u32 {
@@ -700,7 +695,7 @@ impl FluorescentDeflicker {
         }
     }
 
-    /// Build FFmpeg filter string for fluorescent deflicker
+    /// Build `FFmpeg` filter string for fluorescent deflicker
     #[must_use]
     pub fn filter_string(&self, detected_framerate: f64) -> Option<String> {
         if !self.enabled {
@@ -725,10 +720,12 @@ impl FluorescentDeflicker {
 
 /// Deflicker strength level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum DeflickerStrength {
     /// Light - minimal smoothing, preserves more detail
     Light,
     /// Medium - balanced (recommended for most cases)
+    #[default]
     Medium,
     /// Strong - aggressive smoothing for severe flicker
     Strong,
@@ -736,11 +733,6 @@ pub enum DeflickerStrength {
     Extreme,
 }
 
-impl Default for DeflickerStrength {
-    fn default() -> Self {
-        Self::Medium
-    }
-}
 
 /// Photosensitivity protection level (Polygon Shock prevention)
 /// Based on guidelines similar to Ofcom/ITU recommendations for broadcast
@@ -761,38 +753,32 @@ pub enum PhotosensitivityLevel {
 /// Red flash filter level (Ofcom Harding test compliance)
 /// The Ofcom Harding test specifically identifies saturated red as most dangerous
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RedFlashLevel {
     /// Light - reduces red saturation by 15%
     Light,
     /// Standard - reduces red saturation by 25% (broadcast recommended)
+    #[default]
     Standard,
     /// Strict - reduces red saturation by 40%
     Strict,
 }
 
-impl Default for RedFlashLevel {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 /// Spatial pattern filter strength (Ofcom guidelines)
 /// High-contrast regular patterns (especially stripes) can trigger seizures
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SpatialPatternStrength {
     /// Light - subtle pattern smoothing
     Light,
     /// Standard - moderate pattern reduction
+    #[default]
     Standard,
     /// Strong - aggressive pattern suppression
     Strong,
 }
 
-impl Default for SpatialPatternStrength {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 /// Encoding preset (speed vs quality tradeoff)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -861,8 +847,7 @@ impl Resolution {
     pub fn target_bitrate(&self, codec: VideoCodec) -> u32 {
         let base = match self.height {
             720 => 2_500_000,
-            1080 => 5_000_000,
-            _ => 5_000_000,
+            _ => 5_000_000, // 1080p and other resolutions default to 5Mbps
         };
 
         // AV1 and VP9 are more efficient
@@ -993,27 +978,25 @@ pub struct QvbrParams {
 
 /// Rate control mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RateControl {
     /// Constant Rate Factor (quality-based, variable bitrate)
     Crf,
     /// Quality-defined Variable Bitrate (CRF with maxrate constraint)
+    #[default]
     Qvbr,
     /// Constant Bitrate
     Cbr,
 }
 
-impl Default for RateControl {
-    fn default() -> Self {
-        Self::Qvbr
-    }
-}
 
 /// Encryption configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EncryptionConfig {
     /// Enable HLS AES-128 encryption
     pub hls_aes128: bool,
-    /// Enable DASH ClearKey encryption
+    /// Enable DASH `ClearKey` encryption
     pub dash_clearkey: bool,
     /// Key ID (16 bytes hex)
     pub key_id: Option<String>,
@@ -1023,17 +1006,6 @@ pub struct EncryptionConfig {
     pub key_url: Option<String>,
 }
 
-impl Default for EncryptionConfig {
-    fn default() -> Self {
-        Self {
-            hls_aes128: false,
-            dash_clearkey: false,
-            key_id: None,
-            key: None,
-            key_url: None,
-        }
-    }
-}
 
 impl EncryptionConfig {
     /// Create encryption config with auto-generated keys
