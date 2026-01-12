@@ -47,10 +47,10 @@ jobs:
         run: cargo fmt --all -- --check
 
   # ===========================================
-  # Lint (Clippy)
+  # Lint (Clippy with Pedantic)
   # ===========================================
   clippy:
-    name: Clippy
+    name: Clippy (Pedantic)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,8 +63,8 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run clippy with pedantic lints
+        run: cargo clippy --all-targets --all-features -- -W clippy::pedantic -D warnings
 
   # ===========================================
   # Tests
