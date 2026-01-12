@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Encoder - Multi-Tier Streaming Player</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-Tier Streaming Player</h1>
+
+        <div class="main-layout">
+            <!-- Left: Player -->
+            <div>
+                <div class="player-container">
+                    <!-- Normal Mode: Single Video -->
+                    <div id="normalPlayerMode">
+                        <video id="video" controls playsinline></video>
+                    </div>
+
+                    <!-- Comparison Mode: Side-by-Side -->
+                    <div id="comparisonContainer" class="comparison-container">
+                        <div class="comparison-video-wrapper">
+                            <span class="comparison-label original">オリジナル (未処理)</span>
+                            <video id="videoOriginal" class="comparison-video" controls playsinline></video>
+                        </div>
+                        <div class="comparison-video-wrapper">
+                            <span class="comparison-label processed">処理済み</span>
+                            <video id="videoProcessed" class="comparison-video" controls playsinline></video>
+                        </div>
+                    </div>
+
+                    <!-- A/B Toggle Controls -->
+                    <div id="abToggleContainer" class="ab-toggle-container" style="display: none;">
+                        <button class="ab-toggle-btn original active" onclick="switchABMode('original')">
+                            <div>オリジナル</div>
+                            <div class="ab-shortcut">Press A</div>
+                        </button>
+                        <span style="color: #666;">⟷</span>
+                        <button class="ab-toggle-btn processed" onclick="switchABMode('processed')">
+                            <div>処理済み</div>
+                            <div class="ab-shortcut">Press B</div>
+                        </button>
+                    </div>
+
+                    <!-- Sync Status (for comparison mode) -->
+                    <div id="syncStatus" class="sync-status" style="display: none;">
+                        <div class="sync-indicator"></div>
+                        <span>再生同期中</span>
+                        <span id="syncDiff" style="color: #888;">差分: 0.00s</span>
+                    </div>
+
+                    <!-- Stream Type Tabs -->
+                    <div class="stream-tabs" style="margin-top: 15px;">
+                        <div class="stream-tab active" data-type="hls" onclick="selectStreamType('hls')">
+                            <div class="stream-tab-name">HLS</div>
+                            <div class="stream-tab-desc">master.m3u8</div>
+                        </div>
+                        <div class="stream-tab" data-type="dash" onclick="selectStreamType('dash')">
+                            <div class="stream-tab-name">DASH</div>
+                            <div class="stream-tab-desc">manifest.mpd</div>
+                        </div>
+                    </div>
+
+                    <!-- URL Input -->
+                    <div class="controls">
+                        <div class="control-group" style="flex: 2;">
+                            <label>Manifest URL</label>
+                            <input type="text" id="manifestUrl" placeholder="http://localhost:8080/output/hls/master.m3u8">
+                        </div>
+                        <div class="control-group" style="flex: 0; min-width: auto;">
+                            <label>&nbsp;</label>
+                            <div class="btn-group">
+                                <button class="btn-primary" onclick="loadStream()">Load</button>
+                                <button class="btn-danger" onclick="stopStream()">Stop</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Load Buttons -->
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-secondary btn-small" onclick="quickLoad('hls')">Local HLS</button>
+                        <button class="btn-secondary btn-small" onclick="quickLoad('dash')">Local DASH</button>
+                        <button class="btn-secondary btn-small" onclick="copyCurrentUrl()">Copy URL</button>
+                    </div>
+                </div>
+
+                <!-- Playback Log -->
+                <div class="panel" style="margin-top: 15px;">
+                    <h3>Playback Log</h3>
+                    <div class="log-container" id="logContainer"></div>
+                </div>
+            </div>
+
+            <!-- Right: Sidebar -->
+            <div class="sidebar">
+                <!-- Comparison Mode Panel -->
+                <div class="panel">
+                    <h3>比較モード</h3>
+                    <div class="comparison-mode-tabs">
+                        <div class="comparison-mode-tab active" data-mode="normal" onclick="setComparisonMode('normal')">
+                            <div class="comparison-mode-icon">▶️</div>
+                            <div class="comparison-mode-name">通常</div>
+                        </div>
+                        <div class="comparison-mode-tab" data-mode="sidebyside" onclick="setComparisonMode('sidebyside')">
+                            <div class="comparison-mode-icon">⬛⬛</div>
+                            <div class="comparison-mode-name">並列比較</div>
+                        </div>
+                        <div class="comparison-mode-tab" data-mode="ab" onclick="setComparisonMode('ab')">
+                            <div class="comparison-mode-icon">🔀</div>
+                            <div class="comparison-mode-name">A/B切替</div>
+                        </div>
+                    </div>
+
+                    <!-- Source Video Selection -->
+                    <div id="sourceVideoSelection" style="margin-bottom: 15px;">
+                        <label>ソース動画</label>
+                        <select id="sourceVideoSelect" onchange="selectSourceVideo()" style="width: 100%; padding: 8px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 4px;">
+                            <option value="">-- 動画を選択 --</option>
+                            <option value="flash_test">flash_test (5秒テスト)</option>
+                            <option value="test_30s">test_30s (30秒テスト)</option>
+                            <option value="big_buck_bunny_720p">Big Buck Bunny 720p</option>
+                            <option value="bbb_720p">BBB 720p</option>
+                            <option value="bbb_1080p">BBB 1080p</option>
+                            <option value="elephants_dream">Elephants Dream</option>
+                            <option value="sintel_trailer">Sintel Trailer</option>
+                            <option value="tears_of_steel_720p">Tears of Steel 720p</option>
+                            <option value="noisy_test_2min">Noisy Test (2分)</option>
+                            <option value="noisy_test">Noisy Test (フル)</option>
+                            <option value="test_video">test_video (フル)</option>
+                        </select>
+                    </div>
+
+                    <!-- Comparison URL Inputs -->
+                    <div id="comparisonUrlInputs" style="display: none;">
+                        <div style="margin-bottom: 10px;">
+                            <label>オリジナル (未処理) URL</label>
+                            <input type="text" id="originalUrl" placeholder="http://localhost:8080/output_original/hls/master.m3u8">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label>処理済み URL</label>
+                            <input type="text" id="processedUrl" placeholder="http://localhost:8080/output/hls/master.m3u8">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-primary" onclick="loadComparisonStreams()">比較開始</button>
+                            <button class="btn-secondary" onclick="quickLoadComparison()">ローカル比較</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Status Panel (Read-only info) -->
+                <div class="panel">
+                    <h3>適用済みフィルター</h3>
+                    <p style="font-size: 11px; color: #888; margin: 0 0 10px 0;">※ 処理済み動画に適用されているフィルター（エンコード時に設定）</p>
+                    <div class="filter-status-grid" id="filterStatusGrid" style="pointer-events: none;">
+                        <!-- Video Preprocessing -->
+                        <div class="filter-item active" data-filter="normalize">
+                            <div class="filter-name">
+                                音声ノーマライズ
+                                <span class="filter-badge audio">Audio</span>
+                            </div>
+                            <div class="filter-desc">EBU R128 ラウドネス正規化</div>
+                        </div>
+                        <div class="filter-item active" data-filter="deflicker">
+                            <div class="filter-name">
+                                チラつき補正
+                                <span class="filter-badge video">Video</span>
+                            </div>
+                            <div class="filter-desc">フリッカー除去フィルター</div>
+                        </div>
+                        <div class="filter-item active" data-filter="denoise_video">
+                            <div class="filter-name">
+                                映像ノイズ除去
+                                <span class="filter-badge video">Video</span>
+                            </div>
+                            <div class="filter-desc">hqdn3d ノイズリダクション</div>
+                        </div>
+                        <div class="filter-item active" data-filter="denoise_audio">
+                            <div class="filter-name">
+                                音声ノイズ除去
+                                <span class="filter-badge audio">Audio</span>
+                            </div>
+                            <div class="filter-desc">afftdn ノイズゲート</div>
+                        </div>
+
+                        <!-- Broadcast Compliance -->
+                        <div class="filter-item active" data-filter="photosensitivity">
+                            <div class="filter-name">
+                                光過敏症対策
+                                <span class="filter-badge broadcast">Broadcast</span>
+                            </div>
+                            <div class="filter-desc">ポリゴンショック防止 (3Hz制限)</div>
+                        </div>
+                        <div class="filter-item active" data-filter="red_flash">
+                            <div class="filter-name">
+                                赤フラッシュ抑制
+                                <span class="filter-badge broadcast">Broadcast</span>
+                            </div>
+                            <div class="filter-desc">赤色彩度リミッター</div>
+                        </div>
+                        <div class="filter-item active" data-filter="color_limiter">
+                            <div class="filter-name">
+                                色域リミッター
+                                <span class="filter-badge broadcast">Broadcast</span>
+                            </div>
+                            <div class="filter-desc">ITU-R BT.709 準拠</div>
+                        </div>
+                        <div class="filter-item active" data-filter="spatial_pattern">
+                            <div class="filter-name">
+                                空間パターン抑制
+                                <span class="filter-badge broadcast">Broadcast</span>
+                            </div>
+                            <div class="filter-desc">縞模様パターン検出・軽減</div>
+                        </div>
+                        <div class="filter-item active" data-filter="audio_loudness">
+                            <div class="filter-name">
+                                ラウドネス制御
+                                <span class="filter-badge audio">Audio</span>
+                            </div>
+                            <div class="filter-desc">LRA制限 (-24 LUFS)</div>
+                        </div>
+                        <div class="filter-item active" data-filter="peak_limiter">
+                            <div class="filter-name">
+                                ピークリミッター
+                                <span class="filter-badge audio">Audio</span>
+                            </div>
+                            <div class="filter-desc">True Peak -1dBTP</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tier Selection -->
+                <div class="panel" id="tierPanel">
+                    <h3>Tier Selection (HLS)</h3>
+                    <div class="tier-grid" id="tierGrid">
+                        <div class="tier-card disabled" data-tier="1">
+                            <div class="tier-name">Tier 1</div>
+                            <div class="tier-codecs">
+                                <span class="codec-badge codec-av1">AV1</span>
+                                <span class="codec-badge codec-opus">Opus</span>
+                            </div>
+                            <div class="tier-score">Score: 100 (Best)</div>
+                        </div>
+                        <div class="tier-card disabled" data-tier="2">
+                            <div class="tier-name">Tier 2</div>
+                            <div class="tier-codecs">
+                                <span class="codec-badge codec-vp9">VP9</span>
+                                <span class="codec-badge codec-opus">Opus</span>
+                            </div>
+                            <div class="tier-score">Score: 80</div>
+                        </div>
+                        <div class="tier-card disabled" data-tier="3">
+                            <div class="tier-name">Tier 3</div>
+                            <div class="tier-codecs">
+                                <span class="codec-badge codec-vp9">VP9</span>
+                                <span class="codec-badge codec-aac">AAC</span>
+                            </div>
+                            <div class="tier-score">Score: 60</div>
+                        </div>
+                        <div class="tier-card disabled" data-tier="4">
+                            <div class="tier-name">Tier 4</div>
+                            <div class="tier-codecs">
+                                <span class="codec-badge codec-h264">H.264</span>
+                                <span class="codec-badge codec-aac">AAC</span>
+                            </div>
+                            <div class="tier-score">Score: 40 (Fallback)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Levels -->
+                <div class="panel">
+                    <h3>Quality Levels</h3>
+                    <div class="quality-grid" id="qualityLevels">
+                        <button class="quality-btn" disabled>Load stream first</button>
+                    </div>
+                </div>
+
+                <!-- Current Stats -->
+                <div class="panel">
+                    <h3>Playback Stats</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">Video Codec</div>
+                            <div class="stat-value" id="videoCodec">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Audio Codec</div>
+                            <div class="stat-value" id="audioCodec">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Resolution</div>
+                            <div class="stat-value" id="currentResolution">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Bitrate</div>
+                            <div class="stat-value" id="currentBitrate">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Buffer</div>
+                            <div class="stat-value" id="bufferLength">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Dropped</div>
+                            <div class="stat-value" id="droppedFrames">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bitrate Graph -->
+                <div class="panel">
+                    <h3>Bitrate Graph (QVBR-style)</h3>
+                    <div class="bitrate-graph-container">
+                        <canvas id="bitrateCanvas" class="bitrate-canvas"></canvas>
+                        <div class="bitrate-legend">
+                            <div class="legend-item">
+                                <div class="legend-color video"></div>
+                                <span>Video Bitrate</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color audio"></div>
+                                <span>Audio Bitrate</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color target"></div>
+                                <span>Target</span>
+                            </div>
+                        </div>
+                        <div class="bitrate-stats">
+                            <div class="bitrate-stat">
+                                <div class="bitrate-stat-label">Current</div>
+                                <div class="bitrate-stat-value current" id="bitrateCurrentStat">-</div>
+                            </div>
+                            <div class="bitrate-stat">
+                                <div class="bitrate-stat-label">Average</div>
+                                <div class="bitrate-stat-value avg" id="bitrateAvgStat">-</div>
+                            </div>
+                            <div class="bitrate-stat">
+                                <div class="bitrate-stat-label">Peak</div>
+                                <div class="bitrate-stat-value peak" id="bitratePeakStat">-</div>
+                            </div>
+                            <div class="bitrate-stat">
+                                <div class="bitrate-stat-label">Min</div>
+                                <div class="bitrate-stat-value min" id="bitrateMinStat">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Segment Monitor -->
+                <div class="panel">
+                    <h3>Segment Monitor</h3>
+                    <div class="network-info" style="margin-bottom: 10px;">
+                        <div class="network-row">
+                            <span class="network-label">Video Segments</span>
+                            <span class="network-value" id="videoSegmentCount">0</span>
+                        </div>
+                        <div class="network-row">
+                            <span class="network-label">Audio Segments</span>
+                            <span class="network-value" id="audioSegmentCount">0</span>
+                        </div>
+                        <div class="network-row">
+                            <span class="network-label">Total Downloaded</span>
+                            <span class="network-value" id="totalDownloaded">0 KB</span>
+                        </div>
+                    </div>
+                    <div class="segment-log" id="segmentLog">
+                        <div style="color: #666; text-align: center; padding: 20px;">
+                            Segments will appear here...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shared Segments Info -->
+                <div class="panel">
+                    <h3>Shared Segments</h3>
+                    <div class="manifest-info" id="sharedInfo">
+                        <div style="color: #666; text-align: center; padding: 10px;">
+                            Load a stream to see shared segment info
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="panel">
+                    <h3>Settings</h3>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Auto Quality</span>
+                        <div class="toggle active" id="toggleAutoQuality" onclick="toggleSetting('autoQuality')"></div>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Verbose Logging</span>
+                        <div class="toggle" id="toggleVerbose" onclick="toggleSetting('verbose')"></div>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">Low Latency Mode</span>
+                        <div class="toggle" id="toggleLowLatency" onclick="toggleSetting('lowLatency')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HLS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- DASH.js -->
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <!-- Application -->
+    <script src="app.js"></script>
+</body>
+</html>
