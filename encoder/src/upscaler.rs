@@ -234,3 +234,56 @@ pub fn probe_resolution(input: &Path) -> Result<(u32, u32)> {
 
     Ok((width, height))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn needs_upscale_smaller_input() {
+        let target = Resolution::P1080;
+        // Both dimensions smaller
+        assert!(needs_upscale(1280, 720, target));
+        // Only width smaller
+        assert!(needs_upscale(1280, 1080, target));
+        // Only height smaller
+        assert!(needs_upscale(1920, 720, target));
+    }
+
+    #[test]
+    fn needs_upscale_equal_or_larger() {
+        let target = Resolution::P1080;
+        // Exact match
+        assert!(!needs_upscale(1920, 1080, target));
+        // Larger input
+        assert!(!needs_upscale(3840, 2160, target));
+    }
+
+    #[test]
+    fn needs_upscale_common_resolutions() {
+        // 480p to 1080p
+        assert!(needs_upscale(854, 480, Resolution::P1080));
+        // 720p to 1080p
+        assert!(needs_upscale(1280, 720, Resolution::P1080));
+        // 720p to 720p
+        assert!(!needs_upscale(1280, 720, Resolution::P720));
+    }
+
+    #[test]
+    fn resolution_from_target_values() {
+        // 720p returns P720
+        let r720 = Resolution::from_target(720);
+        assert_eq!(r720.width, 1280);
+        assert_eq!(r720.height, 720);
+
+        // 1080p returns P1080
+        let r1080 = Resolution::from_target(1080);
+        assert_eq!(r1080.width, 1920);
+        assert_eq!(r1080.height, 1080);
+
+        // Unknown defaults to 1080p
+        let r_default = Resolution::from_target(480);
+        assert_eq!(r_default.width, 1920);
+        assert_eq!(r_default.height, 1080);
+    }
+}

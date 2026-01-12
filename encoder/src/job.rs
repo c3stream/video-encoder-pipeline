@@ -358,3 +358,151 @@ fn apply_filter_recommendations(preprocess: &mut PreprocessConfig, recs: &Filter
         info!(reason = %reason, "Filter adjustment reason");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upscaler_parse_ffmpeg_default() {
+        assert_eq!(Upscaler::parse("ffmpeg"), Upscaler::Ffmpeg);
+        assert_eq!(Upscaler::parse("unknown"), Upscaler::Ffmpeg);
+        assert_eq!(Upscaler::parse(""), Upscaler::Ffmpeg);
+    }
+
+    #[test]
+    fn upscaler_parse_realesrgan_variants() {
+        assert_eq!(Upscaler::parse("realesrgan"), Upscaler::RealEsrgan);
+        assert_eq!(Upscaler::parse("REALESRGAN"), Upscaler::RealEsrgan);
+        assert_eq!(Upscaler::parse("esrgan"), Upscaler::RealEsrgan);
+        assert_eq!(Upscaler::parse("ai"), Upscaler::RealEsrgan);
+        assert_eq!(Upscaler::parse("AI"), Upscaler::RealEsrgan);
+    }
+
+    #[test]
+    fn job_args_default_values() {
+        let args = JobArgs::default();
+        assert!(args.input.is_empty());
+        assert_eq!(args.output, "output");
+        assert_eq!(args.preset, "balanced");
+        assert_eq!(args.tiers, "all");
+        assert_eq!(args.resolution, 1080);
+        assert!(!args.qvbr);
+        assert!(!args.encrypt);
+        assert!(args.hls);
+        assert!(args.dash);
+        assert!(!args.abr);
+    }
+
+    #[test]
+    fn parse_tiers_all() {
+        let tiers = parse_tiers("all").unwrap();
+        assert_eq!(tiers.len(), 4);
+        assert!(tiers.contains(&Tier::Tier1));
+        assert!(tiers.contains(&Tier::Tier4));
+    }
+
+    #[test]
+    fn parse_tiers_single() {
+        let tiers = parse_tiers("1").unwrap();
+        assert_eq!(tiers, vec![Tier::Tier1]);
+
+        let tiers = parse_tiers("4").unwrap();
+        assert_eq!(tiers, vec![Tier::Tier4]);
+    }
+
+    #[test]
+    fn parse_tiers_multiple() {
+        let tiers = parse_tiers("1,2,3").unwrap();
+        assert_eq!(tiers.len(), 3);
+        assert!(tiers.contains(&Tier::Tier1));
+        assert!(tiers.contains(&Tier::Tier2));
+        assert!(tiers.contains(&Tier::Tier3));
+    }
+
+    #[test]
+    fn parse_tiers_deduplicates() {
+        let tiers = parse_tiers("1,1,2,2").unwrap();
+        assert_eq!(tiers.len(), 2);
+    }
+
+    #[test]
+    fn parse_tiers_invalid() {
+        assert!(parse_tiers("5").is_err());
+        assert!(parse_tiers("invalid").is_err());
+        assert!(parse_tiers("").is_err());
+    }
+
+    #[test]
+    fn job_config_from_args_basic() {
+        let args = JobArgs {
+            input: "test.mp4".to_string(),
+            output: "out".to_string(),
+            ..JobArgs::default()
+        };
+        let config = JobConfig::from_args(&args).unwrap();
+
+        assert_eq!(config.input, "test.mp4");
+        assert_eq!(config.output, "out");
+        assert_eq!(config.preset, Preset::Balanced);
+        assert_eq!(config.tiers.len(), 4);
+        assert!(config.generate_hls);
+        assert!(config.generate_dash);
+    }
+
+    #[test]
+    fn job_config_preset_parsing() {
+        let mut args = JobArgs::default();
+
+        args.preset = "fast".to_string();
+        assert_eq!(JobConfig::from_args(&args).unwrap().preset, Preset::Fast);
+
+        args.preset = "quality".to_string();
+        assert_eq!(JobConfig::from_args(&args).unwrap().preset, Preset::Quality);
+
+        args.preset = "BALANCED".to_string();
+        assert_eq!(JobConfig::from_args(&args).unwrap().preset, Preset::Balanced);
+    }
+
+    #[test]
+    fn job_config_s3_detection() {
+        let mut args = JobArgs::default();
+        args.input = "s3://bucket/input.mp4".to_string();
+        args.output = "s3://bucket/output".to_string();
+
+        let config = JobConfig::from_args(&args).unwrap();
+        assert!(config.is_s3_input());
+        assert!(config.is_s3_output());
+    }
+
+    #[test]
+    fn job_config_local_path_detection() {
+        let mut args = JobArgs::default();
+        args.input = "/path/to/input.mp4".to_string();
+        args.output = "./output".to_string();
+
+        let config = JobConfig::from_args(&args).unwrap();
+        assert!(!config.is_s3_input());
+        assert!(!config.is_s3_output());
+    }
+
+    #[test]
+    fn job_config_encryption_enabled() {
+        let mut args = JobArgs::default();
+        args.encrypt = true;
+
+        let config = JobConfig::from_args(&args).unwrap();
+        assert!(config.encryption.is_enabled());
+    }
+
+    #[test]
+    fn job_config_rate_control() {
+        let mut args = JobArgs::default();
+
+        args.qvbr = false;
+        assert_eq!(JobConfig::from_args(&args).unwrap().rate_control, RateControl::Crf);
+
+        args.qvbr = true;
+        assert_eq!(JobConfig::from_args(&args).unwrap().rate_control, RateControl::Qvbr);
+    }
+}

@@ -1489,3 +1489,102 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_iso_duration_seconds_only() {
+        assert_eq!(format_iso_duration(30.5), "PT30.500S");
+        assert_eq!(format_iso_duration(0.0), "PT0.000S");
+        assert_eq!(format_iso_duration(59.999), "PT59.999S");
+    }
+
+    #[test]
+    fn format_iso_duration_with_minutes() {
+        assert_eq!(format_iso_duration(90.0), "PT1M30.000S");
+        assert_eq!(format_iso_duration(125.5), "PT2M5.500S");
+    }
+
+    #[test]
+    fn format_iso_duration_with_hours() {
+        assert_eq!(format_iso_duration(3661.5), "PT1H1M1.500S");
+        assert_eq!(format_iso_duration(7200.0), "PT2H0M0.000S");
+    }
+
+    #[test]
+    fn video_codec_dir_names() {
+        assert_eq!(video_codec_dir_name(VideoCodec::AV1), "av1");
+        assert_eq!(video_codec_dir_name(VideoCodec::VP9), "vp9");
+        assert_eq!(video_codec_dir_name(VideoCodec::H264), "h264");
+    }
+
+    #[test]
+    fn audio_codec_dir_names() {
+        assert_eq!(audio_codec_dir_name(AudioCodec::Opus), "opus");
+        assert_eq!(audio_codec_dir_name(AudioCodec::AAC), "aac");
+    }
+
+    #[test]
+    fn get_required_codecs_single_tier() {
+        let (video, audio) = get_required_codecs(&[Tier::Tier1]);
+        assert_eq!(video, vec![VideoCodec::AV1]);
+        assert_eq!(audio, vec![AudioCodec::Opus]);
+    }
+
+    #[test]
+    fn get_required_codecs_all_tiers() {
+        let (video, audio) = get_required_codecs(&Tier::all());
+        assert_eq!(video.len(), 3); // AV1, VP9, H264
+        assert_eq!(audio.len(), 2); // Opus, AAC
+        assert!(video.contains(&VideoCodec::AV1));
+        assert!(video.contains(&VideoCodec::VP9));
+        assert!(video.contains(&VideoCodec::H264));
+    }
+
+    #[test]
+    fn get_required_codecs_deduplicates() {
+        // Tier2 and Tier3 both use VP9
+        let (video, _) = get_required_codecs(&[Tier::Tier2, Tier::Tier3]);
+        assert_eq!(video, vec![VideoCodec::VP9]);
+    }
+
+    #[test]
+    fn hex_to_bytes_valid() {
+        assert_eq!(hex_to_bytes("00").unwrap(), vec![0]);
+        assert_eq!(hex_to_bytes("ff").unwrap(), vec![255]);
+        assert_eq!(hex_to_bytes("0123456789abcdef").unwrap(),
+                   vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+    }
+
+    #[test]
+    fn hex_to_bytes_uppercase() {
+        assert_eq!(hex_to_bytes("ABCDEF").unwrap(), vec![0xab, 0xcd, 0xef]);
+    }
+
+    #[test]
+    fn hex_to_bytes_invalid_length() {
+        assert!(hex_to_bytes("abc").is_err()); // Odd length
+    }
+
+    #[test]
+    fn hex_to_bytes_invalid_chars() {
+        assert!(hex_to_bytes("gg").is_err()); // Invalid hex chars
+    }
+
+    #[test]
+    fn generate_clearkey_pssh_produces_valid_base64() {
+        let key_id = "00000000000000000000000000000000";
+        let pssh = generate_clearkey_pssh(key_id);
+
+        // Should be valid base64
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        assert!(STANDARD.decode(&pssh).is_ok());
+
+        // Decoded should start with size bytes and 'pssh'
+        let decoded = STANDARD.decode(&pssh).unwrap();
+        assert!(decoded.len() > 8);
+        assert_eq!(&decoded[4..8], b"pssh");
+    }
+}
