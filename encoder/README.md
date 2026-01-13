@@ -1,6 +1,65 @@
-# Video Encoder
+# Video Encoder Pipeline
+
+[![CI](https://github.com/c3stream/video-encoder-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/c3stream/video-encoder-pipeline/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.92%2B-blue.svg)](https://www.rust-lang.org/)
+
+> **Multi-codec video encoding pipeline with 4-tier output strategy for HLS/DASH streaming**
 
 Rustで実装されたマルチコーデック動画エンコーダー。AWS Batchでのスケーラブルなエンコードジョブ実行に最適化されています。
+
+## 4-Tier Codec Strategy
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        4-Tier Output Strategy                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Tier 1 (Best Compression)      Tier 2 (Wide Support)                      │
+│  ┌─────────────────────┐        ┌─────────────────────┐                    │
+│  │   AV1 + Opus        │        │   VP9 + Opus        │                    │
+│  │   Royalty-free      │        │   Royalty-free      │                    │
+│  │   Chrome/Firefox    │        │   Android/Desktop   │                    │
+│  └─────────────────────┘        └─────────────────────┘                    │
+│                                                                             │
+│  Tier 3 (iOS 14+)               Tier 4 (Universal)                         │
+│  ┌─────────────────────┐        ┌─────────────────────┐                    │
+│  │   VP9 + AAC         │        │   H.264 + AAC       │                    │
+│  │   Video royalty-free│        │   Maximum compat    │                    │
+│  │   Safari 14+        │        │   All devices       │                    │
+│  └─────────────────────┘        └─────────────────────┘                    │
+│                                                                             │
+│  Output: HLS (.m3u8) + DASH (.mpd) with ABR ladder (1080p→360p)            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+```bash
+# Build
+cargo build --release
+
+# Basic encoding with all tiers
+./target/release/video-encoder -i input.mp4 -o ./output --tiers all --hls --dash
+
+# ABR ladder (multi-resolution)
+./target/release/video-encoder -i input.mp4 -o ./output --abr --hls --dash
+
+# H.264 only (universal compatibility)
+./target/release/video-encoder -i input.mp4 -o ./output --tiers 4 --hls
+```
+
+## Examples
+
+Run the included examples to understand the API:
+
+```bash
+# Basic concepts: tiers, presets, renditions
+cargo run --example basic_encode
+
+# ABR ladder configuration
+cargo run --example abr_ladder
+```
 
 ## 機能概要
 
