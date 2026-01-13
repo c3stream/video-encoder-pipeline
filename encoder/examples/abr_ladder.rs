@@ -80,14 +80,8 @@ fn main() {
         let combined_kbps = total_video_kbps + total_audio_kbps;
         let bandwidth_mbps = f64::from(combined_kbps) / 1000.0;
 
-        println!(
-            "  {} ({:?}):",
-            tier.directory_name(),
-            codec
-        );
-        println!(
-            "    Video: {total_video_kbps} kbps, Audio: {total_audio_kbps} kbps"
-        );
+        println!("  {} ({:?}):", tier.directory_name(), codec);
+        println!("    Video: {total_video_kbps} kbps, Audio: {total_audio_kbps} kbps");
         println!("    Total: {bandwidth_mbps:.2} Mbps (for all renditions)\n");
     }
 
@@ -95,7 +89,11 @@ fn main() {
 }
 
 fn print_ladder(name: &str, ladder: &AbrLadder) {
-    println!("  {} Ladder ({} renditions):", name, ladder.renditions.len());
+    println!(
+        "  {} Ladder ({} renditions):",
+        name,
+        ladder.renditions.len()
+    );
 
     for rendition in &ladder.renditions {
         let label = match rendition.height {

@@ -59,7 +59,10 @@ fn main() {
         println!("  {} - {}:", name, rendition.dir_name());
         println!(
             "    Resolution: {}x{}, Video: {}kbps, Audio: {}kbps",
-            rendition.width, rendition.height, rendition.video_bitrate_kbps, rendition.audio_bitrate_kbps
+            rendition.width,
+            rendition.height,
+            rendition.video_bitrate_kbps,
+            rendition.audio_bitrate_kbps
         );
 
         // Show QVBR parameters for each codec
