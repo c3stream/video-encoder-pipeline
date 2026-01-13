@@ -35,9 +35,12 @@ use tracing::info;
 fn probe_duration(input: &Path) -> Result<f64> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             input.to_str().unwrap_or_default(),
         ])
         .output()
@@ -59,9 +62,10 @@ fn probe_duration_from_output(output_base: &Path) -> Result<f64> {
         for rendition in ["1080p", "720p", "480p", "360p"] {
             let playlist = video_base.join(codec).join(rendition).join("playlist.m3u8");
             if playlist.exists()
-                && let Ok(duration) = parse_hls_duration(&playlist) {
-                    return Ok(duration);
-                }
+                && let Ok(duration) = parse_hls_duration(&playlist)
+            {
+                return Ok(duration);
+            }
         }
     }
 
@@ -71,9 +75,10 @@ fn probe_duration_from_output(output_base: &Path) -> Result<f64> {
         for rendition in ["1080p", "720p", "480p", "360p"] {
             let video_playlist = tier_dir.join(rendition).join("video").join("playlist.m3u8");
             if video_playlist.exists()
-                && let Ok(duration) = parse_hls_duration(&video_playlist) {
-                    return Ok(duration);
-                }
+                && let Ok(duration) = parse_hls_duration(&video_playlist)
+            {
+                return Ok(duration);
+            }
         }
     }
 
@@ -89,16 +94,19 @@ fn parse_hls_duration(playlist: &Path) -> Result<f64> {
     for line in content.lines() {
         if line.starts_with("#EXTINF:")
             && let Some(duration_str) = line.strip_prefix("#EXTINF:")
-                && let Some(duration_part) = duration_str.split(',').next()
-                    && let Ok(duration) = duration_part.trim().parse::<f64>() {
-                        total_duration += duration;
-                    }
+            && let Some(duration_part) = duration_str.split(',').next()
+            && let Ok(duration) = duration_part.trim().parse::<f64>()
+        {
+            total_duration += duration;
+        }
     }
 
     if total_duration > 0.0 {
         Ok(total_duration)
     } else {
-        Err(EncoderError::ManifestError("No duration found in playlist".to_string()))
+        Err(EncoderError::ManifestError(
+            "No duration found in playlist".to_string(),
+        ))
     }
 }
 
@@ -190,7 +198,11 @@ pub async fn run_pipeline(config: &JobConfig) -> Result<JobResult> {
         let output_size = calculate_dir_size(&codec_dir).await?;
 
         // Find a tier that uses this video codec for stats
-        if let Some(tier) = config.tiers.iter().find(|t| t.video_codec() == *video_codec) {
+        if let Some(tier) = config
+            .tiers
+            .iter()
+            .find(|t| t.video_codec() == *video_codec)
+        {
             tier_stats.push(TierStats {
                 tier: *tier,
                 encoding_time: codec_duration,
@@ -358,7 +370,9 @@ async fn encode_video_rendition(
     ];
 
     // Build video filter chain with preprocessing
-    let video_filter = config.preprocess.video_filter_chain(Some((rendition.width, rendition.height)));
+    let video_filter = config
+        .preprocess
+        .video_filter_chain(Some((rendition.width, rendition.height)));
     if video_filter.is_empty() {
         // No preprocessing, just scale
         args.extend([
@@ -366,10 +380,7 @@ async fn encode_video_rendition(
             format!("scale={}:{}", rendition.width, rendition.height),
         ]);
     } else {
-        args.extend([
-            "-vf".to_string(),
-            video_filter,
-        ]);
+        args.extend(["-vf".to_string(), video_filter]);
     }
 
     // Video encoding settings with QVBR if enabled
@@ -391,7 +402,11 @@ async fn encode_video_rendition(
         "-hls_fmp4_init_filename".to_string(),
         "init.mp4".to_string(),
         "-hls_segment_filename".to_string(),
-        output_dir.join("segment_%05d.m4s").to_str().unwrap_or_default().to_string(),
+        output_dir
+            .join("segment_%05d.m4s")
+            .to_str()
+            .unwrap_or_default()
+            .to_string(),
         "-y".to_string(),
         playlist.to_str().unwrap_or_default().to_string(),
     ]);
@@ -461,10 +476,7 @@ async fn encode_audio_bitrate(
     // Apply audio preprocessing filters if any
     let audio_filter = config.preprocess.audio_filter_chain();
     if !audio_filter.is_empty() {
-        args.extend([
-            "-af".to_string(),
-            audio_filter,
-        ]);
+        args.extend(["-af".to_string(), audio_filter]);
     }
 
     // Audio encoding settings with specified bitrate
@@ -484,7 +496,11 @@ async fn encode_audio_bitrate(
         "-hls_fmp4_init_filename".to_string(),
         "init.mp4".to_string(),
         "-hls_segment_filename".to_string(),
-        bitrate_dir.join("segment_%05d.m4s").to_str().unwrap_or_default().to_string(),
+        bitrate_dir
+            .join("segment_%05d.m4s")
+            .to_str()
+            .unwrap_or_default()
+            .to_string(),
         "-y".to_string(),
         playlist.to_str().unwrap_or_default().to_string(),
     ]);
@@ -511,7 +527,11 @@ async fn encode_audio_bitrate(
 }
 
 /// Get video encoder arguments with QVBR support
-fn video_encoder_args_qvbr(codec: VideoCodec, rendition: &Rendition, config: &JobConfig) -> Vec<String> {
+fn video_encoder_args_qvbr(
+    codec: VideoCodec,
+    rendition: &Rendition,
+    config: &JobConfig,
+) -> Vec<String> {
     let qvbr = rendition.qvbr_params(codec);
 
     match config.rate_control {
@@ -522,7 +542,11 @@ fn video_encoder_args_qvbr(codec: VideoCodec, rendition: &Rendition, config: &Jo
 }
 
 /// Video encoder args with QVBR (CRF + maxrate)
-fn video_encoder_args_with_qvbr(codec: VideoCodec, qvbr: &QvbrParams, config: &JobConfig) -> Vec<String> {
+fn video_encoder_args_with_qvbr(
+    codec: VideoCodec,
+    qvbr: &QvbrParams,
+    config: &JobConfig,
+) -> Vec<String> {
     match codec {
         VideoCodec::AV1 => vec![
             "-c:v".to_string(),
@@ -634,7 +658,11 @@ fn video_encoder_args_crf_only(codec: VideoCodec, config: &JobConfig) -> Vec<Str
 }
 
 /// Video encoder args with CBR
-fn video_encoder_args_cbr(codec: VideoCodec, rendition: &Rendition, config: &JobConfig) -> Vec<String> {
+fn video_encoder_args_cbr(
+    codec: VideoCodec,
+    rendition: &Rendition,
+    config: &JobConfig,
+) -> Vec<String> {
     let bitrate = format!("{}k", rendition.video_bitrate_kbps);
     let bufsize = format!("{}k", rendition.video_bitrate_kbps * 2);
 
@@ -740,14 +768,16 @@ fn generate_dash_manifest(
     let duration = probe_duration_from_output(output_base)?;
     let duration_str = format_iso_duration(duration);
 
-    let mut mpd = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut mpd = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
      profiles="urn:mpeg:dash:profile:isoff-live:2011"
      type="static"
      mediaPresentationDuration="{duration_str}"
      minBufferTime="PT2S">
   <Period>
-"#);
+"#
+    );
 
     // Get unique video and audio codecs
     let (video_codecs, audio_codecs) = get_required_codecs(tiers);
@@ -953,7 +983,10 @@ fn generate_tier_hls_playlists(
                 let content = std::fs::read_to_string(&source_playlist)
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
-                let rewritten = rewrite_hls_paths(&content, &format!("../segments/video/{video_dir}/{rendition}/"));
+                let rewritten = rewrite_hls_paths(
+                    &content,
+                    &format!("../segments/video/{video_dir}/{rendition}/"),
+                );
                 let target = hls_dir.join(format!("{dir_name}_{rendition}.m3u8"));
                 std::fs::write(&target, rewritten)
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
@@ -979,7 +1012,10 @@ fn generate_tier_hls_playlists(
                 let content = std::fs::read_to_string(&audio_source)
                     .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
-                let rewritten = rewrite_hls_paths(&content, &format!("../segments/audio/{audio_dir}/{bitrate}/"));
+                let rewritten = rewrite_hls_paths(
+                    &content,
+                    &format!("../segments/audio/{audio_dir}/{bitrate}/"),
+                );
                 let target = if config.audio_abr_enabled {
                     hls_dir.join(format!("{dir_name}_audio_{bitrate}.m3u8"))
                 } else {
@@ -1033,7 +1069,8 @@ fn generate_tier_hls_playlists(
             let content = std::fs::read_to_string(&audio_source)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
 
-            let rewritten = rewrite_hls_paths(&content, &format!("../segments/audio/{audio_dir}/128k/"));
+            let rewritten =
+                rewrite_hls_paths(&content, &format!("../segments/audio/{audio_dir}/128k/"));
             let target = hls_dir.join(format!("{dir_name}_audio.m3u8"));
             std::fs::write(&target, rewritten)
                 .map_err(|e| EncoderError::ManifestError(e.to_string()))?;
@@ -1077,12 +1114,12 @@ async fn download_from_s3(s3_uri: &str, work_dir: &Path) -> Result<PathBuf> {
 
     let uri = s3_uri.strip_prefix("s3://").unwrap_or(s3_uri);
     let mut parts = uri.splitn(2, '/');
-    let bucket = parts.next().ok_or_else(|| {
-        EncoderError::S3Error("Invalid S3 URI: missing bucket".to_string())
-    })?;
-    let key = parts.next().ok_or_else(|| {
-        EncoderError::S3Error("Invalid S3 URI: missing key".to_string())
-    })?;
+    let bucket = parts
+        .next()
+        .ok_or_else(|| EncoderError::S3Error("Invalid S3 URI: missing bucket".to_string()))?;
+    let key = parts
+        .next()
+        .ok_or_else(|| EncoderError::S3Error("Invalid S3 URI: missing key".to_string()))?;
 
     info!(bucket, key, "Downloading from S3");
 
@@ -1112,9 +1149,9 @@ async fn upload_to_s3(local_dir: &Path, s3_uri: &str) -> Result<()> {
 
     let uri = s3_uri.strip_prefix("s3://").unwrap_or(s3_uri);
     let mut parts = uri.splitn(2, '/');
-    let bucket = parts.next().ok_or_else(|| {
-        EncoderError::S3Error("Invalid S3 URI: missing bucket".to_string())
-    })?;
+    let bucket = parts
+        .next()
+        .ok_or_else(|| EncoderError::S3Error("Invalid S3 URI: missing bucket".to_string()))?;
     let prefix = parts.next().unwrap_or("");
 
     info!(bucket, prefix, "Uploading to S3");
@@ -1189,9 +1226,11 @@ async fn calculate_dir_size_recursive(dir: &Path, total: &mut u64) -> Result<()>
 
 /// Generate HLS AES-128 key files
 fn generate_hls_key_files(output_base: &Path, config: &JobConfig) -> Result<()> {
-    let key_hex = config.encryption.key.as_ref().ok_or_else(|| {
-        EncoderError::EncryptionError("Missing encryption key".to_string())
-    })?;
+    let key_hex = config
+        .encryption
+        .key
+        .as_ref()
+        .ok_or_else(|| EncoderError::EncryptionError("Missing encryption key".to_string()))?;
 
     let key_bytes = hex_to_bytes(key_hex)?;
 
@@ -1241,7 +1280,9 @@ fn generate_hls_manifest_aes128(
     let hls_dir = output_base.join("hls");
 
     // Update all tier playlists with encryption
-    for entry in std::fs::read_dir(&hls_dir).map_err(|e| EncoderError::ManifestError(e.to_string()))? {
+    for entry in
+        std::fs::read_dir(&hls_dir).map_err(|e| EncoderError::ManifestError(e.to_string()))?
+    {
         let entry = entry.map_err(|e| EncoderError::ManifestError(e.to_string()))?;
         let path = entry.path();
 
@@ -1252,7 +1293,9 @@ fn generate_hls_manifest_aes128(
             // Add encryption key after version
             let encrypted = content.replace(
                 "#EXT-X-VERSION:7\n",
-                &format!("#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=AES-128,URI=\"{key_url}\",IV=0x{iv}\n")
+                &format!(
+                    "#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=AES-128,URI=\"{key_url}\",IV=0x{iv}\n"
+                ),
             );
 
             std::fs::write(&path, encrypted)
@@ -1275,9 +1318,10 @@ fn generate_dash_manifest_clearkey(
     output_path: &Path,
     config: &JobConfig,
 ) -> Result<()> {
-    let key_id = config.encryption.key_id.as_ref().ok_or_else(|| {
-        EncoderError::EncryptionError("Missing key_id for ClearKey".to_string())
-    })?;
+    let key_id =
+        config.encryption.key_id.as_ref().ok_or_else(|| {
+            EncoderError::EncryptionError("Missing key_id for ClearKey".to_string())
+        })?;
 
     let key_id_uuid = format!(
         "{}-{}-{}-{}-{}",
@@ -1292,7 +1336,8 @@ fn generate_dash_manifest_clearkey(
     let duration_str = format_iso_duration(duration);
     let pssh = generate_clearkey_pssh(key_id);
 
-    let mut mpd = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+    let mut mpd = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
      xmlns:cenc="urn:mpeg:cenc:2013"
      profiles="urn:mpeg:dash:profile:isoff-live:2011"
@@ -1300,7 +1345,8 @@ fn generate_dash_manifest_clearkey(
      mediaPresentationDuration="{duration_str}"
      minBufferTime="PT2S">
   <Period>
-"#);
+"#
+    );
 
     let (video_codecs, audio_codecs) = get_required_codecs(tiers);
 
@@ -1415,8 +1461,8 @@ fn generate_clearkey_pssh(key_id: &str) -> String {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     let system_id: [u8; 16] = [
-        0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02,
-        0xac, 0xe3, 0x3c, 0x1e, 0x52, 0xe2, 0xfb, 0x4b
+        0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02, 0xac, 0xe3, 0x3c, 0x1e, 0x52, 0xe2, 0xfb,
+        0x4b,
     ];
 
     let key_id_bytes = hex_to_bytes(key_id).unwrap_or_default();
@@ -1440,12 +1486,16 @@ fn generate_clearkey_pssh(key_id: &str) -> String {
 fn generate_clearkey_license_file(output_base: &Path, config: &JobConfig) -> Result<()> {
     use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
-    let key_id = config.encryption.key_id.as_ref().ok_or_else(|| {
-        EncoderError::EncryptionError("Missing key_id".to_string())
-    })?;
-    let key = config.encryption.key.as_ref().ok_or_else(|| {
-        EncoderError::EncryptionError("Missing key".to_string())
-    })?;
+    let key_id = config
+        .encryption
+        .key_id
+        .as_ref()
+        .ok_or_else(|| EncoderError::EncryptionError("Missing key_id".to_string()))?;
+    let key = config
+        .encryption
+        .key
+        .as_ref()
+        .ok_or_else(|| EncoderError::EncryptionError("Missing key".to_string()))?;
 
     let key_id_bytes = hex_to_bytes(key_id)?;
     let key_bytes = hex_to_bytes(key)?;
@@ -1478,7 +1528,9 @@ fn generate_clearkey_license_file(output_base: &Path, config: &JobConfig) -> Res
 /// Convert hex string to bytes
 fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
     if !hex.len().is_multiple_of(2) {
-        return Err(EncoderError::EncryptionError("Invalid hex string length".to_string()));
+        return Err(EncoderError::EncryptionError(
+            "Invalid hex string length".to_string(),
+        ));
     }
 
     (0..hex.len())
@@ -1555,8 +1607,10 @@ mod tests {
     fn hex_to_bytes_valid() {
         assert_eq!(hex_to_bytes("00").unwrap(), vec![0]);
         assert_eq!(hex_to_bytes("ff").unwrap(), vec![255]);
-        assert_eq!(hex_to_bytes("0123456789abcdef").unwrap(),
-                   vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+        assert_eq!(
+            hex_to_bytes("0123456789abcdef").unwrap(),
+            vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]
+        );
     }
 
     #[test]

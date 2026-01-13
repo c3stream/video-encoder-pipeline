@@ -3,7 +3,7 @@
 //! These benchmarks measure the performance of core configuration
 //! operations that are frequently called during encoding.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use video_encoder::config::{
     AbrLadder, EncryptionConfig, PreprocessConfig, Preset, Rendition, Tier, VideoCodec,
 };

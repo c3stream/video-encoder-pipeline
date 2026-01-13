@@ -111,11 +111,13 @@ impl SourceInfo {
 
     /// Parse ffprobe JSON output
     fn from_ffprobe_output(json: &str, path: &Path) -> Result<Self> {
-        let data: serde_json::Value = serde_json::from_str(json)
-            .map_err(|e| EncoderError::FfmpegError(format!("Failed to parse ffprobe output: {e}")))?;
+        let data: serde_json::Value = serde_json::from_str(json).map_err(|e| {
+            EncoderError::FfmpegError(format!("Failed to parse ffprobe output: {e}"))
+        })?;
 
         // Extract stream information
-        let streams = data["streams"].as_array()
+        let streams = data["streams"]
+            .as_array()
             .ok_or_else(|| EncoderError::FfmpegError("No streams found".to_string()))?;
 
         let mut video_codec = String::new();
@@ -131,7 +133,10 @@ impl SourceInfo {
 
             match codec_type {
                 "video" => {
-                    video_codec = stream["codec_name"].as_str().unwrap_or("unknown").to_string();
+                    video_codec = stream["codec_name"]
+                        .as_str()
+                        .unwrap_or("unknown")
+                        .to_string();
                     width = stream["width"].as_u64().unwrap_or(0) as u32;
                     height = stream["height"].as_u64().unwrap_or(0) as u32;
 
@@ -148,7 +153,12 @@ impl SourceInfo {
                     }
                 }
                 "audio" => {
-                    audio_codec = Some(stream["codec_name"].as_str().unwrap_or("unknown").to_string());
+                    audio_codec = Some(
+                        stream["codec_name"]
+                            .as_str()
+                            .unwrap_or("unknown")
+                            .to_string(),
+                    );
                     if let Some(br) = stream["bit_rate"].as_str() {
                         audio_bitrate_kbps = br.parse::<u64>().ok().map(|b| (b / 1000) as u32);
                     }
@@ -159,18 +169,21 @@ impl SourceInfo {
 
         // Extract format information
         let format = &data["format"];
-        let duration_secs = format["duration"].as_str()
+        let duration_secs = format["duration"]
+            .as_str()
             .and_then(|d| d.parse::<f64>().ok())
             .unwrap_or(0.0);
 
         // Extract encoder from tags
-        let encoder = format["tags"]["encoder"].as_str()
+        let encoder = format["tags"]["encoder"]
+            .as_str()
             .or_else(|| format["tags"]["writing_library"].as_str())
             .or_else(|| format["tags"]["handler_name"].as_str())
             .map(String::from);
 
         // Extract processing comment
-        let processing_comment = format["tags"]["comment"].as_str()
+        let processing_comment = format["tags"]["comment"]
+            .as_str()
             .or_else(|| format["tags"]["description"].as_str())
             .map(String::from);
 
@@ -233,7 +246,8 @@ impl SourceInfo {
             self.height,
             self.video_codec,
             self.framerate,
-            self.video_bitrate_kbps.map_or("unknown bps".to_string(), |b| format!("{b}kbps")),
+            self.video_bitrate_kbps
+                .map_or("unknown bps".to_string(), |b| format!("{b}kbps")),
             self.status
         )
     }
@@ -243,7 +257,10 @@ impl SourceInfo {
         println!("\n========== Source Analysis Report ==========");
         println!("Resolution:    {}x{}", self.width, self.height);
         println!("Video Codec:   {}", self.video_codec);
-        println!("Audio Codec:   {}", self.audio_codec.as_deref().unwrap_or("none"));
+        println!(
+            "Audio Codec:   {}",
+            self.audio_codec.as_deref().unwrap_or("none")
+        );
         println!("Framerate:     {:.3} fps", self.framerate);
         println!("Duration:      {:.2} seconds", self.duration_secs);
 
@@ -273,8 +290,10 @@ impl SourceInfo {
 fn run_ffprobe(path: &Path) -> Result<String> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "quiet",
-            "-print_format", "json",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_format",
             "-show_streams",
             path.to_str().unwrap_or_default(),
@@ -284,7 +303,7 @@ fn run_ffprobe(path: &Path) -> Result<String> {
 
     if !output.status.success() {
         return Err(EncoderError::FfmpegError(
-            String::from_utf8_lossy(&output.stderr).to_string()
+            String::from_utf8_lossy(&output.stderr).to_string(),
         ));
     }
 
@@ -328,9 +347,10 @@ fn detect_processing_status(
         if enc_lower.contains("lavf") || enc_lower.contains("ffmpeg") {
             // High bitrate FFmpeg output might be intermediate
             if let Some(kbps) = video_bitrate_kbps
-                && kbps > 20000 {
-                    return ProcessingStatus::Filtered;
-                }
+                && kbps > 20000
+            {
+                return ProcessingStatus::Filtered;
+            }
             return ProcessingStatus::Encoded;
         }
 
@@ -347,12 +367,14 @@ fn detect_processing_status(
 
     // Check codec for raw/professional formats
     let raw_codecs = [
-        "prores", "dnxhd", "dnxhr", "cfhd", "v210",
-        "rawvideo", "ffv1", "huffyuv", "magicyuv",
+        "prores", "dnxhd", "dnxhr", "cfhd", "v210", "rawvideo", "ffv1", "huffyuv", "magicyuv",
         "r210", "v410", "yuv4",
     ];
 
-    if raw_codecs.iter().any(|c| video_codec.to_lowercase().contains(c)) {
+    if raw_codecs
+        .iter()
+        .any(|c| video_codec.to_lowercase().contains(c))
+    {
         return ProcessingStatus::Raw;
     }
 
@@ -396,55 +418,67 @@ fn generate_recommendations(
             // Already encoded - be very conservative
             rec.skip_video_denoise = true;
             rec.skip_deblock = true;
-            rec.reasons.push("Already encoded: skipping video denoise to avoid quality loss".to_string());
-            rec.reasons.push("Already encoded: skipping deblock (may already be applied)".to_string());
+            rec.reasons
+                .push("Already encoded: skipping video denoise to avoid quality loss".to_string());
+            rec.reasons
+                .push("Already encoded: skipping deblock (may already be applied)".to_string());
 
             // Check for low bitrate (likely heavily compressed)
             if let Some(kbps) = video_bitrate_kbps
-                && kbps < 3000 {
-                    rec.skip_deflicker = true;
-                    rec.reasons.push(format!(
-                        "Low bitrate ({kbps}kbps): deflicker may introduce artifacts"
-                    ));
-                }
+                && kbps < 3000
+            {
+                rec.skip_deflicker = true;
+                rec.reasons.push(format!(
+                    "Low bitrate ({kbps}kbps): deflicker may introduce artifacts"
+                ));
+            }
         }
         ProcessingStatus::Filtered => {
             // Already filtered - skip duplicate processing
             rec.skip_video_denoise = true;
             rec.skip_deflicker = true;
-            rec.reasons.push("Already filtered: skipping denoise".to_string());
-            rec.reasons.push("Already filtered: skipping deflicker".to_string());
+            rec.reasons
+                .push("Already filtered: skipping denoise".to_string());
+            rec.reasons
+                .push("Already filtered: skipping deflicker".to_string());
         }
         ProcessingStatus::Raw => {
             // Raw source - all filters are safe
-            rec.reasons.push("Raw source detected: all filters recommended".to_string());
+            rec.reasons
+                .push("Raw source detected: all filters recommended".to_string());
         }
         ProcessingStatus::Unknown => {
             // Unknown - use conservative defaults based on codec
-            if (video_codec.to_lowercase().contains("h264") || video_codec.to_lowercase().contains("hevc"))
+            if (video_codec.to_lowercase().contains("h264")
+                || video_codec.to_lowercase().contains("hevc"))
                 && let Some(kbps) = video_bitrate_kbps
-                    && kbps < 5000 {
-                        rec.skip_video_denoise = true;
-                        rec.reasons.push("Compressed source: denoise may degrade quality".to_string());
-                    }
+                && kbps < 5000
+            {
+                rec.skip_video_denoise = true;
+                rec.reasons
+                    .push("Compressed source: denoise may degrade quality".to_string());
+            }
         }
     }
 
     // Check encoder for normalization status
     if let Some(enc) = encoder
-        && enc.to_lowercase().contains("loudnorm") {
-            rec.skip_audio_normalize = true;
-            rec.reasons.push("Audio already normalized (loudnorm detected)".to_string());
-        }
+        && enc.to_lowercase().contains("loudnorm")
+    {
+        rec.skip_audio_normalize = true;
+        rec.reasons
+            .push("Audio already normalized (loudnorm detected)".to_string());
+    }
 
     // Check for low audio bitrate
     if let Some(kbps) = audio_bitrate_kbps
-        && kbps < 64 {
-            rec.skip_audio_denoise = true;
-            rec.reasons.push(format!(
-                "Low audio bitrate ({kbps}kbps): skipping denoise to preserve quality"
-            ));
-        }
+        && kbps < 64
+    {
+        rec.skip_audio_denoise = true;
+        rec.reasons.push(format!(
+            "Low audio bitrate ({kbps}kbps): skipping denoise to preserve quality"
+        ));
+    }
 
     rec
 }
@@ -465,7 +499,7 @@ pub fn generate_processing_metadata(filters_applied: &[&str]) -> String {
 }
 
 /// `FFmpeg` metadata args for embedding processing info
-#[must_use] 
+#[must_use]
 pub fn metadata_args(comment: &str) -> Vec<String> {
     vec![
         "-metadata".to_string(),
@@ -499,13 +533,20 @@ mod tests {
 
     #[test]
     fn test_detect_raw_codec() {
-        let status = detect_processing_status("prores", Some(100_000), None, None, Path::new("test.mov"));
+        let status =
+            detect_processing_status("prores", Some(100_000), None, None, Path::new("test.mov"));
         assert_eq!(status, ProcessingStatus::Raw);
     }
 
     #[test]
     fn test_detect_encoded() {
-        let status = detect_processing_status("h264", Some(3000), Some("Lavf58.76.100"), None, Path::new("test.mp4"));
+        let status = detect_processing_status(
+            "h264",
+            Some(3000),
+            Some("Lavf58.76.100"),
+            None,
+            Path::new("test.mp4"),
+        );
         assert_eq!(status, ProcessingStatus::Encoded);
     }
 }

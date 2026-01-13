@@ -26,7 +26,7 @@ mod upscaler;
 
 use anyhow::Result;
 use clap::Parser;
-use tracing::{info, Level};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 #[derive(Parser, Debug)]

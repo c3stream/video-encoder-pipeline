@@ -35,10 +35,7 @@ async fn upscale_ffmpeg(input: &Path, output: &Path, target: Resolution) -> Resu
             "-i",
             input.to_str().unwrap_or_default(),
             "-vf",
-            &format!(
-                "scale={}:{}:flags=lanczos",
-                target.width, target.height
-            ),
+            &format!("scale={}:{}:flags=lanczos", target.width, target.height),
             "-c:v",
             "libx264",
             "-preset",
@@ -72,9 +69,7 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
     );
 
     // Check if realesrgan-ncnn-vulkan is available
-    let which_result = Command::new("which")
-        .arg("realesrgan-ncnn-vulkan")
-        .output();
+    let which_result = Command::new("which").arg("realesrgan-ncnn-vulkan").output();
 
     if which_result.is_err() || !which_result.unwrap().status.success() {
         warn!("Real-ESRGAN not found, falling back to FFmpeg");
@@ -101,7 +96,10 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
             input.to_str().unwrap_or_default(),
             "-qscale:v",
             "2",
-            frames_dir.join("frame_%06d.png").to_str().unwrap_or_default(),
+            frames_dir
+                .join("frame_%06d.png")
+                .to_str()
+                .unwrap_or_default(),
         ])
         .status()
         .map_err(|e| EncoderError::UpscaleError(e.to_string()))?;
@@ -141,18 +139,20 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
     // Get framerate from input
     let probe = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=r_frame_rate",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=r_frame_rate",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             input.to_str().unwrap_or_default(),
         ])
         .output()
         .map_err(|e| EncoderError::UpscaleError(e.to_string()))?;
 
-    let fps = String::from_utf8_lossy(&probe.stdout)
-        .trim()
-        .to_string();
+    let fps = String::from_utf8_lossy(&probe.stdout).trim().to_string();
 
     // Reassemble video with audio
     info!("Reassembling video...");
@@ -161,7 +161,10 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
             "-framerate",
             &fps,
             "-i",
-            upscaled_dir.join("frame_%06d.png").to_str().unwrap_or_default(),
+            upscaled_dir
+                .join("frame_%06d.png")
+                .to_str()
+                .unwrap_or_default(),
             "-i",
             input.to_str().unwrap_or_default(),
             "-map",
@@ -198,7 +201,7 @@ async fn upscale_realesrgan(input: &Path, output: &Path, target: Resolution) -> 
 }
 
 /// Check if upscaling is needed based on input resolution
-#[must_use] 
+#[must_use]
 pub fn needs_upscale(input_width: u32, input_height: u32, target: Resolution) -> bool {
     input_width < target.width || input_height < target.height
 }
@@ -207,10 +210,14 @@ pub fn needs_upscale(input_width: u32, input_height: u32, target: Resolution) ->
 pub fn probe_resolution(input: &Path) -> Result<(u32, u32)> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=width,height",
-            "-of", "csv=s=x:p=0",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=s=x:p=0",
             input.to_str().unwrap_or_default(),
         ])
         .output()

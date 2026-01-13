@@ -1,6 +1,9 @@
 //! Job configuration and management
 
-use crate::config::{AbrLadder, AudioLadder, EncryptionConfig, Preset, PreprocessConfig, RateControl, Resolution, SegmentConfig, Tier};
+use crate::config::{
+    AbrLadder, AudioLadder, EncryptionConfig, PreprocessConfig, Preset, RateControl, Resolution,
+    SegmentConfig, Tier,
+};
 use crate::error::{EncoderError, Result};
 use crate::source_analyzer::{FilterRecommendations, SourceInfo};
 use serde::{Deserialize, Serialize};
@@ -174,10 +177,7 @@ impl JobConfig {
         let tiers = parse_tiers(&args.tiers)?;
         let resolution = Resolution::from_target(args.resolution);
 
-        let work_dir = std::env::temp_dir().join(format!(
-            "video-encoder-{}",
-            std::process::id()
-        ));
+        let work_dir = std::env::temp_dir().join(format!("video-encoder-{}", std::process::id()));
 
         let rate_control = if args.qvbr {
             RateControl::Qvbr
@@ -462,7 +462,10 @@ mod tests {
         assert_eq!(JobConfig::from_args(&args).unwrap().preset, Preset::Quality);
 
         args.preset = "BALANCED".to_string();
-        assert_eq!(JobConfig::from_args(&args).unwrap().preset, Preset::Balanced);
+        assert_eq!(
+            JobConfig::from_args(&args).unwrap().preset,
+            Preset::Balanced
+        );
     }
 
     #[test]
@@ -501,9 +504,15 @@ mod tests {
         let mut args = JobArgs::default();
 
         args.qvbr = false;
-        assert_eq!(JobConfig::from_args(&args).unwrap().rate_control, RateControl::Crf);
+        assert_eq!(
+            JobConfig::from_args(&args).unwrap().rate_control,
+            RateControl::Crf
+        );
 
         args.qvbr = true;
-        assert_eq!(JobConfig::from_args(&args).unwrap().rate_control, RateControl::Qvbr);
+        assert_eq!(
+            JobConfig::from_args(&args).unwrap().rate_control,
+            RateControl::Qvbr
+        );
     }
 }

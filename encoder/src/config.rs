@@ -189,7 +189,6 @@ pub struct PreprocessConfig {
     pub photosensitivity_level: PhotosensitivityLevel,
 
     // === Ofcom/ITU Broadcast Compliance Filters ===
-
     /// Enable red flash saturation filter (Ofcom Harding test compliance)
     /// Reduces saturated red content that is most dangerous for photosensitive viewers
     pub red_flash_filter: bool,
@@ -433,7 +432,6 @@ impl PreprocessConfig {
 
     /// Internal helper to build remaining video filters after deflicker
     fn build_remaining_video_filters(&self, filters: &mut Vec<String>, scale: Option<(u32, u32)>) {
-
         // Photosensitivity filter - prevents rapid brightness changes (Polygon Shock prevention)
         // Uses FFmpeg's built-in photosensitivity filter which is designed for this purpose
         // Based on ITU-R BT.1702 and Ofcom guidelines (max 3 flashes/second, 25% screen area)
@@ -447,14 +445,16 @@ impl PreprocessConfig {
             // - threshold: sensitivity (HIGHER = less intervention, only extreme flashes)
             // Web streaming should use high thresholds to avoid scene change artifacts
             let (frames, threshold) = match self.photosensitivity_level {
-                PhotosensitivityLevel::Light => (15, 2.0),     // Very minimal - only extreme strobe
+                PhotosensitivityLevel::Light => (15, 2.0), // Very minimal - only extreme strobe
                 PhotosensitivityLevel::Standard => (20, 1.5), // Moderate - dangerous flashes only
-                PhotosensitivityLevel::Strict => (30, 1.0),   // Stricter - more flash detection
+                PhotosensitivityLevel::Strict => (30, 1.0), // Stricter - more flash detection
             };
 
             // FFmpeg photosensitivity filter - only applies correction when extreme flash detected
             // High threshold ensures normal scene changes are NOT affected
-            filters.push(format!("photosensitivity=frames={frames}:threshold={threshold:.1}"));
+            filters.push(format!(
+                "photosensitivity=frames={frames}:threshold={threshold:.1}"
+            ));
 
             // Note: Removed limiter as it can affect scene brightness transitions
         }
@@ -479,9 +479,9 @@ impl PreprocessConfig {
             // Very gentle reduction - only targets extremely saturated reds
             // Most normal content will be unaffected
             let red_reduction = match self.red_flash_level {
-                RedFlashLevel::Light => 5,      // 5% - barely noticeable
-                RedFlashLevel::Standard => 10,  // 10% - subtle
-                RedFlashLevel::Strict => 20,    // 20% - noticeable for dangerous content
+                RedFlashLevel::Light => 5,     // 5% - barely noticeable
+                RedFlashLevel::Standard => 10, // 10% - subtle
+                RedFlashLevel::Strict => 20,   // 20% - noticeable for dangerous content
             };
             // selectivecolor: only affects pixels in the pure red hue range
             filters.push(format!(
@@ -549,7 +549,10 @@ impl PreprocessConfig {
             let threshold_db = self.max_peak_dbtp;
             filters.push(format!(
                 "compand=attacks={}:decays={}:points=-80/-80|{}/-80|0/{}:soft-knee=6",
-                attack_s, release_s, threshold_db - 6.0, threshold_db
+                attack_s,
+                release_s,
+                threshold_db - 6.0,
+                threshold_db
             ));
         }
 
@@ -558,8 +561,16 @@ impl PreprocessConfig {
         // NOTE: Without measured_* parameters, loudnorm will analyze the input automatically
         // This is slower but more accurate than assuming fixed input measurements
         if self.audio_normalize || self.audio_loudness_range {
-            let target_i = if self.audio_normalize { self.target_lufs } else { -23.0 };
-            let target_lra = if self.audio_loudness_range { self.target_lra } else { 11.0 };
+            let target_i = if self.audio_normalize {
+                self.target_lufs
+            } else {
+                -23.0
+            };
+            let target_lra = if self.audio_loudness_range {
+                self.target_lra
+            } else {
+                11.0
+            };
             // Use print_format=summary for single-pass mode without pre-measured values
             // This automatically analyzes input and normalizes to target
             filters.push(format!(
@@ -595,8 +606,7 @@ pub enum DenoiseStrength {
 /// Fluorescent lights flicker at twice the power line frequency:
 /// - 50Hz regions (Eastern Japan, Europe, etc.): 100Hz flicker
 /// - 60Hz regions (Western Japan, Americas, etc.): 120Hz flicker
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum PowerFrequency {
     /// 50Hz power line (Eastern Japan, Europe, Australia, most of Asia/Africa)
     /// Results in 100Hz light flicker
@@ -609,7 +619,6 @@ pub enum PowerFrequency {
     Auto,
 }
 
-
 impl PowerFrequency {
     /// Calculate optimal deflicker frame window size based on framerate
     ///
@@ -620,9 +629,9 @@ impl PowerFrequency {
     #[must_use]
     pub fn optimal_window_size(&self, framerate: f64) -> u32 {
         let flicker_freq = match self {
-            Self::Hz50 => 100.0,  // 50Hz × 2
-            Self::Hz60 => 120.0,  // 60Hz × 2
-            Self::Auto => 110.0,  // Middle ground
+            Self::Hz50 => 100.0, // 50Hz × 2
+            Self::Hz60 => 120.0, // 60Hz × 2
+            Self::Auto => 110.0, // Middle ground
         };
 
         // Frames per flicker cycle
@@ -714,13 +723,15 @@ impl FluorescentDeflicker {
         };
 
         // Use arithmetic mean mode for smoother results
-        Some(format!("deflicker=size={}:mode=am", adjusted_window.min(15)))
+        Some(format!(
+            "deflicker=size={}:mode=am",
+            adjusted_window.min(15)
+        ))
     }
 }
 
 /// Deflicker strength level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum DeflickerStrength {
     /// Light - minimal smoothing, preserves more detail
     Light,
@@ -732,7 +743,6 @@ pub enum DeflickerStrength {
     /// Extreme - maximum smoothing (may cause motion blur)
     Extreme,
 }
-
 
 /// Photosensitivity protection level (Polygon Shock prevention)
 /// Based on guidelines similar to Ofcom/ITU recommendations for broadcast
@@ -752,8 +762,7 @@ pub enum PhotosensitivityLevel {
 
 /// Red flash filter level (Ofcom Harding test compliance)
 /// The Ofcom Harding test specifically identifies saturated red as most dangerous
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum RedFlashLevel {
     /// Light - reduces red saturation by 15%
     Light,
@@ -764,11 +773,9 @@ pub enum RedFlashLevel {
     Strict,
 }
 
-
 /// Spatial pattern filter strength (Ofcom guidelines)
 /// High-contrast regular patterns (especially stripes) can trigger seizures
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SpatialPatternStrength {
     /// Light - subtle pattern smoothing
     Light,
@@ -778,7 +785,6 @@ pub enum SpatialPatternStrength {
     /// Strong - aggressive pattern suppression
     Strong,
 }
-
 
 /// Encoding preset (speed vs quality tradeoff)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -924,7 +930,12 @@ pub struct Rendition {
 
 impl Rendition {
     #[must_use]
-    pub const fn new(width: u32, height: u32, video_bitrate_kbps: u32, audio_bitrate_kbps: u32) -> Self {
+    pub const fn new(
+        width: u32,
+        height: u32,
+        video_bitrate_kbps: u32,
+        audio_bitrate_kbps: u32,
+    ) -> Self {
         Self {
             width,
             height,
@@ -977,8 +988,7 @@ pub struct QvbrParams {
 }
 
 /// Rate control mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum RateControl {
     /// Constant Rate Factor (quality-based, variable bitrate)
     Crf,
@@ -989,10 +999,8 @@ pub enum RateControl {
     Cbr,
 }
 
-
 /// Encryption configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EncryptionConfig {
     /// Enable HLS AES-128 encryption
     pub hls_aes128: bool,
@@ -1005,7 +1013,6 @@ pub struct EncryptionConfig {
     /// Key server URL for HLS
     pub key_url: Option<String>,
 }
-
 
 impl EncryptionConfig {
     /// Create encryption config with auto-generated keys
