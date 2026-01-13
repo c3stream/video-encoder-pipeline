@@ -2,11 +2,16 @@ version: 2
 updates:
   # Rust dependencies
   - package-ecosystem: "cargo"
-    directory: "/"
+    directory: "/encoder"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "rust"
     groups:
       aws-sdk:
         patterns:
@@ -17,8 +22,9 @@ updates:
       serde:
         patterns:
           - "serde*"
-    reviewers:
-      - "kazuhirokondo"
+      tracing:
+        patterns:
+          - "tracing*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -27,11 +33,14 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"
 
-  # Go modules (CDK)
-  - package-ecosystem: "gomod"
-    directory: "/cdk"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
+  # Note: CDK Go modules are managed in a separate infrastructure repository
+  # If you need CDK dependency updates, add them back with:
+  # - package-ecosystem: "gomod"
+  #   directory: "/cdk"
+  #   ...
