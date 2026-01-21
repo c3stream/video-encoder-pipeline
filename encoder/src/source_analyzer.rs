@@ -287,9 +287,14 @@ impl SourceInfo {
 }
 
 /// Run ffprobe and get JSON output
+///
+/// Uses `-allowed_extensions ALL` to support encrypted HLS input
+/// with non-standard key file extensions (e.g., .aspx).
 fn run_ffprobe(path: &Path) -> Result<String> {
     let output = Command::new("ffprobe")
         .args([
+            "-allowed_extensions",
+            "ALL",
             "-v",
             "quiet",
             "-print_format",

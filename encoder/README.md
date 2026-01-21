@@ -187,6 +187,24 @@ Filter Recommendations:
 video-encoder -i input.mp4 -o ./output --encrypt --hls --dash
 ```
 
+### 暗号化HLS入力サポート
+
+暗号化されたHLS（AES-128）を直接入力として使用できます。非標準のキーファイル拡張子（.aspxなど）にも対応しています。
+
+```bash
+# 暗号化HLSを直接変換
+video-encoder -i https://example.com/encrypted/master.m3u8 -o ./output --tiers 2 --dash
+
+# ローカルの暗号化HLS
+video-encoder -i ./encrypted_hls/playlist.m3u8 -o ./output --hls --dash
+```
+
+**サポートされる入力形式:**
+
+- AES-128暗号化HLS（標準キーURL）
+- 非標準キーファイル拡張子（.aspx, .key, .bin等）
+- リモートおよびローカルHLSプレイリスト
+
 ### S3連携
 
 ```bash

@@ -32,9 +32,14 @@ use tokio::fs;
 use tracing::info;
 
 /// Probe video duration in seconds using `FFprobe`
+///
+/// Uses `-allowed_extensions ALL` to support encrypted HLS input
+/// with non-standard key file extensions (e.g., .aspx).
 fn probe_duration(input: &Path) -> Result<f64> {
     let output = Command::new("ffprobe")
         .args([
+            "-allowed_extensions",
+            "ALL",
             "-v",
             "error",
             "-show_entries",
@@ -363,7 +368,11 @@ async fn encode_video_rendition(
 ) -> Result<()> {
     let segment_duration = config.segment_config.duration_secs;
 
+    // Use -allowed_extensions ALL to support encrypted HLS input
+    // with non-standard key file extensions (e.g., .aspx)
     let mut args = vec![
+        "-allowed_extensions".to_string(),
+        "ALL".to_string(),
         "-i".to_string(),
         input.to_str().unwrap_or_default().to_string(),
         "-an".to_string(), // No audio
@@ -467,7 +476,11 @@ async fn encode_audio_bitrate(
 
     let segment_duration = config.segment_config.duration_secs;
 
+    // Use -allowed_extensions ALL to support encrypted HLS input
+    // with non-standard key file extensions (e.g., .aspx)
     let mut args = vec![
+        "-allowed_extensions".to_string(),
+        "ALL".to_string(),
         "-i".to_string(),
         input.to_str().unwrap_or_default().to_string(),
         "-vn".to_string(), // No video
